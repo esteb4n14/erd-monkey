@@ -5,8 +5,7 @@ Modelador visual interactivo de diagramas Entidad-Relación (ERD) diseñado espe
 ---
 
 ## 🚀 Cómo Usar
-No requiere instalar Node.js ni Python. Funciona de inmediato en cualquier navegador.
-- Haz doble clic en el archivo **`abrir-erd-Monkey.bat`** o abre directamente **`index.html`** en tu navegador (Chrome, Edge, Firefox, Brave).
+- Haz doble clic en el archivo **`index.html`** en tu navegador (Chrome, Edge, Firefox, Brave).
 
 ---
 
@@ -41,3 +40,15 @@ No requiere instalar Node.js ni Python. Funciona de inmediato en cualquier naveg
    - **Guardar / Cargar**: Exporta e importa tu diagrama en archivo `.json` conservando todas las posiciones y colores manuales.
    - **Autoguardado**: Guarda automáticamente en tu navegador para que nunca pierdas tu trabajo si cierras la pestaña.
    - **Exportar PNG**: Descarga tu diagrama en alta calidad con un solo clic.
+
+## Cobertura del importador SQL
+
+El importador está enfocado en DDL de PostgreSQL. Reconoce tablas con esquema, identificadores entrecomillados, claves primarias y únicas, referencias inline o declaradas como restricciones, y claves foráneas compuestas. Las referencias sin lista explícita de columnas se resuelven usando la clave primaria de la tabla destino.
+
+Las definiciones que no se puedan interpretar y las referencias a tablas o columnas que falten se informan como advertencias al generar el diagrama. El importador no ejecuta el SQL ni conecta con una base de datos.
+
+## Estructura del código
+
+- `sql-parser.js`: tokenización del SQL PostgreSQL y extracción de tablas, columnas, restricciones y relaciones.
+- `app.js`: interfaz, renderizado, interacción del lienzo y persistencia del proyecto.
+- `index.html` carga primero el parser y luego la aplicación. Se mantiene el uso de scripts clásicos para que abrir `index.html` directamente en el navegador siga funcionando.

@@ -24,18 +24,6 @@ const state = {
   showCardinalities: true,
 };
 
-// PALETA DE COLORES PREDEFINIDOS PARA TABLAS
-const TABLE_COLORS = [
-  '#1e3a8a', // Azul marino
-  '#065f46', // Verde esmeralda
-  '#7c2d12', // Terracota / Ámbar
-  '#581c87', // Púrpura
-  '#831843', // Carmesí / Rosa
-  '#0e7490', // Cian oscuro
-  '#334155', // Carbón pizarra
-  '#4338ca'  // Índigo
-];
-
 // ELEMENTOS DOM
 const dom = {
   viewport: document.getElementById('viewport'),
@@ -67,203 +55,7 @@ function getCanvasCoords(clientX, clientY) {
   };
 }
 
-/* ==========================================================================
-   1. PARSER SQL PARA POSTGRESQL
-   ========================================================================== */
-
-function parsePostgresSQL(sqlText) {
-  const tables = new Map();
-  const links = [];
-
-  // 1. Limpiar comentarios SQL (-- y /* */)
-  let cleanSql = sqlText
-    .replace(/--.*$/gm, '')
-    .replace(/\/\*[\s\S]*?\*\//g, '');
-
-  // 2. Extraer CREATE TABLE
-  const createTableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:["']?(\w+)["']?\.)?["']?(\w+)["']?\s*\(([\s\S]*?)\)\s*;/gi;
-
-  let match;
-  let tableIndex = 0;
-
-  while ((match = createTableRegex.exec(cleanSql)) !== null) {
-    const tableName = match[2];
-    const body = match[3];
-
-    const columns = [];
-    const pkSet = new Set();
-    const uniqueSet = new Set();
-    const fkDefinitions = [];
-
-    // Dividir definiciones de columnas respetando paréntesis como NUMERIC(10, 2)
-    const rawTokens = splitSqlDefinitions(body);
-
-    for (const token of rawTokens) {
-      const line = token.trim();
-      if (!line) continue;
-
-      // Table Constraint: PRIMARY KEY (col1, col2)
-      const pkMatch = line.match(/^(?:CONSTRAINT\s+["']?\w+["']?\s+)?PRIMARY\s+KEY\s*\(([\w\s,"']+)\)/i);
-      if (pkMatch) {
-        pkMatch[1].split(',').forEach(col => {
-          pkSet.add(cleanIdentifier(col).toLowerCase());
-        });
-        continue;
-      }
-
-      // Table Constraint: UNIQUE (col1, col2)
-      const uqMatch = line.match(/^(?:CONSTRAINT\s+["']?\w+["']?\s+)?UNIQUE\s*\(([\w\s,"']+)\)/i);
-      if (uqMatch) {
-        uqMatch[1].split(',').forEach(col => {
-          uniqueSet.add(cleanIdentifier(col).toLowerCase());
-        });
-        continue;
-      }
-
-      // Table Constraint: FOREIGN KEY (col) REFERENCES table (col)
-      const fkMatch = line.match(/^(?:CONSTRAINT\s+["']?(\w+)["']?\s+)?FOREIGN\s+KEY\s*\(([\w\s,"']+)\)\s*REFERENCES\s+(?:["']?(\w+)["']?\.)?["']?(\w+)["']?\s*(?:\(([\w\s,"']+)\))?/i);
-      if (fkMatch) {
-        const fromCol = cleanIdentifier(fkMatch[2]);
-        const toTable = fkMatch[4];
-        const toCol = fkMatch[5] ? cleanIdentifier(fkMatch[5]) : 'id';
-        fkDefinitions.push({ fromCol, toTable, toCol });
-        continue;
-      }
-
-      // Definición de columna
-      const colMatch = line.match(/^["']?(\w+)["']?\s+([A-Za-z0-9_]+(?:\s*\([^)]+\))?)([\s\S]*)$/);
-      if (colMatch) {
-        const colName = colMatch[1];
-        const colType = colMatch[2];
-        const rest = colMatch[3] || '';
-
-        let isPk = false;
-        let isFk = false;
-
-        // Inline PRIMARY KEY
-        if (/PRIMARY\s+KEY/i.test(rest)) {
-          isPk = true;
-          pkSet.add(colName.toLowerCase());
-        }
-
-        // Inline UNIQUE
-        if (/UNIQUE/i.test(rest)) {
-          uniqueSet.add(colName.toLowerCase());
-        }
-
-        // Inline REFERENCES (FK)
-        const inlineRef = rest.match(/REFERENCES\s+(?:["']?(\w+)["']?\.)?["']?(\w+)["']?\s*(?:\(([\w\s,"']+)\))?/i);
-        if (inlineRef) {
-          isFk = true;
-          const targetTable = inlineRef[2];
-          const targetCol = inlineRef[3] ? cleanIdentifier(inlineRef[3]) : 'id';
-          fkDefinitions.push({ fromCol: colName, toTable: targetTable, toCol: targetCol });
-        }
-
-        columns.push({
-          name: colName,
-          type: colType.toUpperCase(),
-          isPk: isPk,
-          isFk: isFk
-        });
-      }
-    }
-
-    // Actualizar columnas con PKs declaradas a nivel de tabla
-    columns.forEach(col => {
-      if (pkSet.has(col.name.toLowerCase())) {
-        col.isPk = true;
-      }
-    });
-
-    const color = TABLE_COLORS[tableIndex % TABLE_COLORS.length];
-    tables.set(tableName.toLowerCase(), {
-      id: tableName.toLowerCase(),
-      name: tableName,
-      columns: columns,
-      x: 60 + (tableIndex % 3) * 320,
-      y: 60 + Math.floor(tableIndex / 3) * 360,
-      color: color,
-      fks: fkDefinitions,
-      uniqueSet: uniqueSet
-    });
-
-    tableIndex++;
-  }
-
-  // 3. Extraer ALTER TABLE ... ADD CONSTRAINT ... FOREIGN KEY
-  const alterFkRegex = /ALTER\s+TABLE\s+(?:ONLY\s+)?(?:["']?(\w+)["']?\.)?["']?(\w+)["']?\s+ADD\s+(?:CONSTRAINT\s+["']?\w+["']?\s+)?FOREIGN\s+KEY\s*\(([\w\s,"']+)\)\s*REFERENCES\s+(?:["']?(\w+)["']?\.)?["']?(\w+)["']?\s*(?:\(([\w\s,"']+)\))?/gi;
-  let alterMatch;
-  while ((alterMatch = alterFkRegex.exec(cleanSql)) !== null) {
-    const fromTable = alterMatch[2].toLowerCase();
-    const fromCol = cleanIdentifier(alterMatch[3]);
-    const toTable = alterMatch[5].toLowerCase();
-    const toCol = alterMatch[6] ? cleanIdentifier(alterMatch[6]) : 'id';
-
-    if (tables.has(fromTable)) {
-      const t = tables.get(fromTable);
-      t.fks.push({ fromCol, toTable, toCol });
-      const col = t.columns.find(c => c.name.toLowerCase() === fromCol.toLowerCase());
-      if (col) col.isFk = true;
-    }
-  }
-
-  // 4. Construir lista de enlaces entre tablas
-  let linkIdCounter = 1;
-  tables.forEach((t) => {
-    t.fks.forEach((fk) => {
-      const targetTableLower = fk.toTable.toLowerCase();
-      if (tables.has(targetTableLower)) {
-        const col = t.columns.find(c => c.name.toLowerCase() === fk.fromCol.toLowerCase());
-        if (col) col.isFk = true;
-
-        // Si la columna foránea es UNIQUE o PRIMARY KEY, la cardinalidad es 1:1, de lo contrario 1:N
-        const isOneToOne = (col && col.isPk) || (t.uniqueSet && t.uniqueSet.has(fk.fromCol.toLowerCase()));
-
-        links.push({
-          id: `link-${linkIdCounter++}`,
-          fromTable: t.id,
-          fromCol: fk.fromCol,
-          toTable: targetTableLower,
-          toCol: fk.toCol,
-          color: '#38bdf8', // Color celeste moderno por defecto
-          width: 2,
-          style: 'solid',
-          cardinality: isOneToOne ? '1:1' : '1:N'
-        });
-      }
-    });
-  });
-
-  return { tables, links };
-}
-
-function cleanIdentifier(str) {
-  return str.replace(/["'\s]/g, '');
-}
-
-function splitSqlDefinitions(bodyText) {
-  const tokens = [];
-  let depth = 0;
-  let current = '';
-
-  for (let i = 0; i < bodyText.length; i++) {
-    const char = bodyText[i];
-    if (char === '(') depth++;
-    else if (char === ')') depth--;
-
-    if (char === ',' && depth === 0) {
-      tokens.push(current);
-      current = '';
-    } else {
-      current += char;
-    }
-  }
-  if (current.trim()) tokens.push(current);
-  return tokens;
-}
-
-/* ==========================================================================
+/* ========================================================================== 
    2. RENDERIZADO DEL DIAGRAMA
    ========================================================================== */
 
@@ -289,20 +81,32 @@ function renderTables() {
     headerEl.className = 'table-header';
     headerEl.style.backgroundColor = table.color || '#1e3a8a';
 
-    headerEl.innerHTML = `
-      <div class="table-title-area">
-        <span class="table-icon">📑</span>
-        <span class="table-name" title="${table.name}">${table.name}</span>
-      </div>
-      <div class="table-header-tools">
-        <label class="table-color-btn" title="Clic para cambiar color de la tabla">
-          <input type="color" class="table-color-input" value="${table.color || '#1e3a8a'}">
-        </label>
-      </div>
-    `;
+    const titleArea = document.createElement('div');
+    titleArea.className = 'table-title-area';
+    const icon = document.createElement('span');
+    icon.className = 'table-icon';
+    icon.textContent = '📑';
+    const title = document.createElement('span');
+    title.className = 'table-name';
+    title.textContent = table.name;
+    title.title = table.name;
+    titleArea.append(icon, title);
+
+    const headerTools = document.createElement('div');
+    headerTools.className = 'table-header-tools';
+    const colorLabel = document.createElement('label');
+    colorLabel.className = 'table-color-btn';
+    colorLabel.title = 'Clic para cambiar color de la tabla';
+    const tableColorInput = document.createElement('input');
+    tableColorInput.type = 'color';
+    tableColorInput.className = 'table-color-input';
+    tableColorInput.value = table.color || '#1e3a8a';
+    colorLabel.appendChild(tableColorInput);
+    headerTools.appendChild(colorLabel);
+    headerEl.append(titleArea, headerTools);
 
     // Cambio de color de la tabla
-    const colorInput = headerEl.querySelector('.table-color-input');
+    const colorInput = tableColorInput;
     colorInput.addEventListener('input', (e) => {
       table.color = e.target.value;
       headerEl.style.backgroundColor = table.color;
@@ -321,19 +125,33 @@ function renderTables() {
     table.columns.forEach((col) => {
       const colEl = document.createElement('div');
       colEl.className = 'table-col';
-      colEl.id = `port-${table.id}-${col.name.toLowerCase()}`;
+      colEl.id = getPortElementId(table.id, col.name);
 
-      let badgesHtml = '';
-      if (col.isPk) badgesHtml += `<span class="col-badge badge-pk" title="Primary Key">PK</span>`;
-      if (col.isFk) badgesHtml += `<span class="col-badge badge-fk" title="Foreign Key">FK</span>`;
-
-      colEl.innerHTML = `
-        <div class="col-left">
-          ${badgesHtml}
-          <span class="col-name" title="${col.name}">${col.name}</span>
-        </div>
-        <span class="col-type">${col.type}</span>
-      `;
+      const colLeft = document.createElement('div');
+      colLeft.className = 'col-left';
+      if (col.isPk) {
+        const badge = document.createElement('span');
+        badge.className = 'col-badge badge-pk';
+        badge.title = 'Primary Key';
+        badge.textContent = 'PK';
+        colLeft.appendChild(badge);
+      }
+      if (col.isFk) {
+        const badge = document.createElement('span');
+        badge.className = 'col-badge badge-fk';
+        badge.title = 'Foreign Key';
+        badge.textContent = 'FK';
+        colLeft.appendChild(badge);
+      }
+      const colName = document.createElement('span');
+      colName.className = 'col-name';
+      colName.textContent = col.name;
+      colName.title = col.name;
+      colLeft.appendChild(colName);
+      const colType = document.createElement('span');
+      colType.className = 'col-type';
+      colType.textContent = col.type;
+      colEl.append(colLeft, colType);
       bodyEl.appendChild(colEl);
     });
 
@@ -341,6 +159,10 @@ function renderTables() {
     tableEl.appendChild(bodyEl);
     dom.tablesLayer.appendChild(tableEl);
   });
+}
+
+function getPortElementId(tableId, columnName) {
+  return `port-${encodeURIComponent(JSON.stringify([tableId, columnName]))}`;
 }
 
 function selectTable(tableId) {
@@ -558,8 +380,8 @@ function calculateLinkPoints(fromTable, fromCol, toTable, toCol, fromEl, toEl) {
   const w1 = fromEl.offsetWidth || 250;
   const w2 = toEl.offsetWidth || 250;
 
-  const fromPortEl = document.getElementById(`port-${fromTable.id}-${fromCol.toLowerCase()}`);
-  const toPortEl = document.getElementById(`port-${toTable.id}-${toCol.toLowerCase()}`);
+  const fromPortEl = document.getElementById(getPortElementId(fromTable.id, fromCol));
+  const toPortEl = document.getElementById(getPortElementId(toTable.id, toCol));
 
   const portOffset1 = fromPortEl ? fromPortEl.offsetTop + fromPortEl.offsetHeight / 2 : 20;
   const portOffset2 = toPortEl ? toPortEl.offsetTop + toPortEl.offsetHeight / 2 : 20;
@@ -903,7 +725,16 @@ function updateStats() {
    ========================================================================== */
 
 function saveToLocalStorage() {
-  const data = {
+  try {
+    localStorage.setItem('erd_monkey_project', JSON.stringify(createProjectSnapshot()));
+  } catch (err) {
+    console.warn('No se pudo guardar en localStorage:', err);
+  }
+}
+
+function createProjectSnapshot() {
+  return {
+    version: '1.1',
     tables: Array.from(state.tables.entries()),
     links: state.links,
     panX: state.panX,
@@ -911,32 +742,94 @@ function saveToLocalStorage() {
     zoom: state.zoom,
     showCardinalities: state.showCardinalities
   };
-  try {
-    localStorage.setItem('erd_monkey_project', JSON.stringify(data));
-  } catch (err) {
-    console.warn('No se pudo guardar en localStorage:', err);
+}
+
+function isValidColor(value) {
+  return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
+}
+
+function normalizeProject(data) {
+  if (!data || !Array.isArray(data.tables) || !Array.isArray(data.links || [])) return null;
+  if (data.tables.length > 1000 || (data.links || []).length > 5000) return null;
+  const tables = new Map();
+
+  for (const entry of data.tables) {
+    if (!Array.isArray(entry) || entry.length !== 2 || typeof entry[0] !== 'string') return null;
+    const [key, source] = entry;
+    if (!source || typeof source !== 'object' || source.id !== key || typeof source.name !== 'string' || source.name.length > 512 || !Array.isArray(source.columns) || source.columns.length > 1000) return null;
+    if (!Number.isFinite(source.x) || !Number.isFinite(source.y) || Math.abs(source.x) > 1000000 || Math.abs(source.y) > 1000000) return null;
+    const columns = [];
+    for (const column of source.columns) {
+      if (!column || typeof column.name !== 'string' || column.name.length > 512 || typeof column.type !== 'string' || column.type.length > 256) return null;
+      columns.push({ name: column.name, type: column.type, isPk: column.isPk === true, isFk: column.isFk === true });
+    }
+    tables.set(key, {
+      id: key,
+      name: source.name,
+      schema: typeof source.schema === 'string' ? source.schema : null,
+      columns,
+      x: source.x,
+      y: source.y,
+      color: isValidColor(source.color) ? source.color : '#1e3a8a'
+    });
   }
+
+  const links = [];
+  for (const source of data.links || []) {
+    if (!source || typeof source !== 'object' || typeof source.id !== 'string' || !tables.has(source.fromTable) || !tables.has(source.toTable)) return null;
+    if (typeof source.fromCol !== 'string' || typeof source.toCol !== 'string') return null;
+    const fromTable = tables.get(source.fromTable);
+    const toTable = tables.get(source.toTable);
+    if (!fromTable.columns.some(column => column.name === source.fromCol) || !toTable.columns.some(column => column.name === source.toCol)) return null;
+    const points = source.points === undefined ? [] : source.points;
+    if (!Array.isArray(points) || points.length > 50 || points.some(point => !point || !Number.isFinite(point.x) || !Number.isFinite(point.y) || Math.abs(point.x) > 1000000 || Math.abs(point.y) > 1000000)) return null;
+    links.push({
+      id: source.id,
+      fromTable: source.fromTable,
+      fromCol: source.fromCol,
+      toTable: source.toTable,
+      toCol: source.toCol,
+      color: isValidColor(source.color) ? source.color : '#38bdf8',
+      width: Number.isFinite(source.width) ? Math.min(5, Math.max(1, source.width)) : 2,
+      style: source.style === 'dashed' ? 'dashed' : 'solid',
+      cardinality: ['1:1', '1:N', 'N:N'].includes(source.cardinality) ? source.cardinality : '1:N',
+      points: points.map(point => ({ x: point.x, y: point.y }))
+    });
+  }
+
+  const finiteOr = (value, fallback) => Number.isFinite(value) ? value : fallback;
+  return {
+    tables,
+    links,
+    panX: finiteOr(data.panX, 40),
+    panY: finiteOr(data.panY, 40),
+    zoom: Math.min(3, Math.max(0.2, finiteOr(data.zoom, 1))),
+    showCardinalities: data.showCardinalities !== false
+  };
+}
+
+function applyProject(data) {
+  const project = normalizeProject(data);
+  if (!project) throw new Error('Estructura de proyecto inválida.');
+  state.tables = project.tables;
+  state.links = project.links;
+  state.selectedTable = null;
+  state.selectedLink = null;
+  state.panX = project.panX;
+  state.panY = project.panY;
+  state.zoom = project.zoom;
+  state.showCardinalities = project.showCardinalities;
+  dom.btnToggleCardinality.classList.toggle('active', state.showCardinalities);
+  dom.svgLayer.classList.toggle('hide-cardinalities', !state.showCardinalities);
+  renderDiagram();
 }
 
 function loadFromLocalStorage() {
   try {
     const raw = localStorage.getItem('erd_monkey_project');
     if (!raw) return false;
-    const data = JSON.parse(raw);
-    if (data && data.tables) {
-      state.tables = new Map(data.tables);
-      state.links = data.links || [];
-      state.panX = data.panX || 40;
-      state.panY = data.panY || 40;
-      state.zoom = data.zoom || 1;
-      state.showCardinalities = data.showCardinalities !== false;
-      if (dom.btnToggleCardinality) {
-        dom.btnToggleCardinality.classList.toggle('active', state.showCardinalities);
-      }
-      dom.svgLayer.classList.toggle('hide-cardinalities', !state.showCardinalities);
-      renderDiagram();
-      return true;
-    }
+    applyProject(JSON.parse(raw));
+    return true;
   } catch (err) {
     console.error('Error al cargar proyecto guardado:', err);
   }
@@ -945,11 +838,7 @@ function loadFromLocalStorage() {
 
 // Guardar archivo JSON
 document.getElementById('btn-save-project').addEventListener('click', () => {
-  const data = {
-    version: '1.0',
-    tables: Array.from(state.tables.entries()),
-    links: state.links
-  };
+  const data = createProjectSnapshot();
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -971,17 +860,14 @@ dom.fileLoadProject.addEventListener('change', (e) => {
   reader.onload = (event) => {
     try {
       const data = JSON.parse(event.target.result);
-      if (data && data.tables) {
-        state.tables = new Map(data.tables);
-        state.links = data.links || [];
-        renderDiagram();
-        saveToLocalStorage();
-      }
+      applyProject(data);
+      saveToLocalStorage();
     } catch (err) {
-      alert('Archivo JSON de proyecto inválido.');
+      alert(`Archivo JSON de proyecto inválido: ${err.message}`);
     }
   };
   reader.readAsText(file);
+  dom.fileLoadProject.value = '';
 });
 
 // Exportar a PNG
@@ -1237,18 +1123,24 @@ document.getElementById('btn-process-sql').addEventListener('click', () => {
     return;
   }
 
-  const result = parsePostgresSQL(sql);
+  const result = SqlParser.parse(sql);
   if (result.tables.size === 0) {
-    alert('No se detectaron sentencias CREATE TABLE válidas en el SQL.');
+    const details = result.diagnostics.length ? `\n\n${result.diagnostics.join('\n')}` : '';
+    alert(`No se detectaron sentencias CREATE TABLE válidas en el SQL.${details}`);
     return;
   }
 
   state.tables = result.tables;
   state.links = result.links;
+  state.selectedTable = null;
+  state.selectedLink = null;
 
   closeModal();
   renderDiagram();
   saveToLocalStorage();
+  if (result.diagnostics.length) {
+    alert(`Diagrama generado con advertencias:\n\n${result.diagnostics.join('\n')}`);
+  }
 });
 
 document.getElementById('btn-zoom-in').addEventListener('click', () => {
@@ -1278,7 +1170,7 @@ function init() {
   const loaded = loadFromLocalStorage();
   if (!loaded) {
     loadFallbackSample();
-    const result = parsePostgresSQL(dom.sqlInput.value);
+    const result = SqlParser.parse(dom.sqlInput.value);
     state.tables = result.tables;
     state.links = result.links;
     renderDiagram();
