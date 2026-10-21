@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ERD Monkey - Modelador SQL PostgreSQL</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- BARRA SUPERIOR DE HERRAMIENTAS -->
+  <header class="toolbar">
+    <div class="brand">
+      <span class="brand-icon">🐵</span>
+      <span class="brand-name">ERD Monkey</span>
+    </div>
+
+    <div class="toolbar-actions">
+      <button id="btn-import-sql" class="btn btn-primary" title="Importar o pegar script SQL">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+        Importar SQL
+      </button>
+
+      <button id="btn-auto-layout" class="btn btn-secondary" title="Reorganizar tablas automáticamente">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+        Auto Orden
+      </button>
+
+      <button id="btn-toggle-cardinality" class="btn btn-secondary active" title="Mostrar u ocultar indicadores de cardinalidad (1:N, 1:1)">
+        <span style="font-family: var(--font-mono); font-weight: 700; font-size: 11px;">1 : N</span>
+      </button>
+
+      <div class="divider"></div>
+
+      <button id="btn-zoom-in" class="btn btn-icon" title="Acercar (Zoom +)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+      </button>
+      <span id="zoom-level" class="zoom-text">100%</span>
+      <button id="btn-zoom-out" class="btn btn-icon" title="Alejar (Zoom -)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+      </button>
+      <button id="btn-reset-view" class="btn btn-icon" title="Centrar vista">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="3"></circle></svg>
+      </button>
+
+      <div class="divider"></div>
+
+      <button id="btn-save-project" class="btn btn-secondary" title="Guardar proyecto completo con posiciones y colores">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+        Guardar
+      </button>
+
+      <button id="btn-load-project" class="btn btn-secondary" title="Cargar proyecto guardado (.json)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        Cargar
+      </button>
+      <input type="file" id="file-load-project" accept=".json" style="display: none;">
+
+      <button id="btn-export-png" class="btn btn-secondary" title="Exportar diagrama como imagen PNG">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+        Exportar PNG
+      </button>
+    </div>
+  </header>
+
+  <!-- ÁREA DE TRABAJO (CANVAS INFINITO) -->
+  <main id="viewport" class="viewport">
+    <div id="canvas" class="canvas">
+      <!-- CAPA SVG PARA LAS RELACIONES -->
+      <svg id="svg-layer" class="svg-layer">
+        <defs>
+          <filter id="line-shadow" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.3" />
+          </filter>
+        </defs>
+      </svg>
+      <!-- CAPA DE TABLAS DOM -->
+      <div id="tables-layer" class="tables-layer"></div>
+    </div>
+  </main>
+
+  <!-- MODAL DE IMPORTAR SQL -->
+  <div id="modal-sql" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Importar Script PostgreSQL</h3>
+        <button id="btn-close-modal" class="btn-close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-hint">
+          Pega tu script SQL (con sentencias <code>CREATE TABLE</code>, <code>PRIMARY KEY</code> y <code>FOREIGN KEY / REFERENCES</code>) o carga un archivo <code>.sql</code>.
+        </p>
+        <div class="modal-file-bar">
+          <input type="file" id="file-import-sql" accept=".sql,.txt">
+          <button id="btn-load-sample-sql" class="btn btn-sm btn-secondary">Cargar Ejemplo Incluido</button>
+        </div>
+        <textarea id="sql-input" placeholder="CREATE TABLE usuarios (&#10;    id SERIAL PRIMARY KEY,&#10;    nombre VARCHAR(100)&#10;);"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-cancel-modal" class="btn btn-secondary">Cancelar</button>
+        <button id="btn-process-sql" class="btn btn-primary">Generar Diagrama</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- POPUP FLOTANTE PARA EDITAR COLOR/ESTILO DE RELACIÓN SELECCIONADA -->
+  <div id="link-popover" class="link-popover" style="display: none;">
+    <div class="popover-header">
+      <span class="popover-title">Enlace de Relación</span>
+      <button id="btn-close-popover" class="btn-close-mini">&times;</button>
+    </div>
+    <div class="popover-row">
+      <label>Color de la unión:</label>
+      <div class="color-picker-wrap">
+        <input type="color" id="link-color-input" value="#3b82f6">
+        <div class="color-presets">
+          <span class="color-dot" style="background: #3b82f6;" data-color="#3b82f6"></span>
+          <span class="color-dot" style="background: #10b981;" data-color="#10b981"></span>
+          <span class="color-dot" style="background: #f59e0b;" data-color="#f59e0b"></span>
+          <span class="color-dot" style="background: #ef4444;" data-color="#ef4444"></span>
+          <span class="color-dot" style="background: #a855f7;" data-color="#a855f7"></span>
+          <span class="color-dot" style="background: #ec4899;" data-color="#ec4899"></span>
+          <span class="color-dot" style="background: #64748b;" data-color="#64748b"></span>
+        </div>
+      </div>
+    </div>
+    <div class="popover-row">
+      <label>Grosor de línea:</label>
+      <input type="range" id="link-width-input" min="1" max="5" value="2" step="0.5">
+      <span id="link-width-val" class="mono-val">2px</span>
+    </div>
+    <div class="popover-row">
+      <label>Estilo:</label>
+      <select id="link-style-input" class="select-sm">
+        <option value="solid">Línea Continua</option>
+        <option value="dashed">Discontinua (Punteada)</option>
+      </select>
+    </div>
+    <div class="popover-row">
+      <label>Cardinalidad:</label>
+      <select id="link-cardinality-input" class="select-sm">
+        <option value="1:N">1 : N (Uno a Muchos)</option>
+        <option value="1:1">1 : 1 (Uno a Uno)</option>
+        <option value="N:N">N : N (Muchos a Muchos)</option>
+      </select>
+    </div>
+    <div class="popover-actions">
+      <button id="btn-add-point" class="btn btn-sm btn-secondary" title="Añadir otro punto para doblar la línea">
+        + Añadir punto vector
+      </button>
+      <button id="btn-reset-line" class="btn btn-sm btn-secondary" title="Restablecer curva automática">
+        ↺ Restablecer curva
+      </button>
+    </div>
+  </div>
+
+  <!-- BARRA INFERIOR DE ESTADO Y CONSEJOS -->
+  <footer class="statusbar">
+    <span class="status-item"><span class="kbd">Arrastrar</span> Mover tabla / Clic derecho para paneo</span>
+    <span class="status-item"><span class="kbd">Punto ●</span> Arrastra el punto vector para mover la línea manualmente</span>
+    <span class="status-item"><span class="kbd">🎨 Cabecera</span> Color de tabla</span>
+    <span class="status-item"><span class="kbd">🔗 Línea</span> Clic en unión para opciones</span>
+    <span id="status-stats" class="status-item status-right">0 tablas | 0 relaciones</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
