@@ -27,12 +27,16 @@ const state = {
 let lastAppliedSql = '';
 let sqlDraftSaveTimer = null;
 let sqlFileName = 'schema.sql';
+let sqlSidebarWidth = 380;
 
 // ELEMENTOS DOM
 const dom = {
   workspace: document.getElementById('workspace'),
   sqlSidebar: document.getElementById('sql-sidebar'),
+  sqlResizeHandle: document.getElementById('sql-resize-handle'),
   sqlEditorStatus: document.getElementById('sql-editor-status'),
+  sqlHighlight: document.getElementById('sql-highlight'),
+  sqlHighlightCode: document.getElementById('sql-highlight-code'),
   viewport: document.getElementById('viewport'),
   canvas: document.getElementById('canvas'),
   svgLayer: document.getElementById('svg-layer'),
@@ -80,6 +84,68 @@ function setSqlSidebarOpen(isOpen) {
   toggle.setAttribute('aria-expanded', String(isOpen));
   toggle.title = isOpen ? 'Ocultar editor SQL' : 'Mostrar editor SQL';
 }
+
+function getMaxSqlSidebarWidth() {
+  return Math.max(280, Math.min(720, dom.workspace.clientWidth - 320));
+}
+
+function setSqlSidebarWidth(width) {
+  const maxWidth = getMaxSqlSidebarWidth();
+  sqlSidebarWidth = Math.round(Math.min(maxWidth, Math.max(280, width)));
+  renderSqlSidebarWidth();
+}
+
+function renderSqlSidebarWidth() {
+  const maxWidth = getMaxSqlSidebarWidth();
+  const visibleWidth = Math.round(Math.min(maxWidth, Math.max(280, sqlSidebarWidth)));
+  dom.workspace.style.setProperty('--sql-sidebar-width', `${visibleWidth}px`);
+  dom.sqlResizeHandle.setAttribute('aria-valuenow', String(visibleWidth));
+  dom.sqlResizeHandle.setAttribute('aria-valuemax', String(maxWidth));
+}
+
+function updateSqlHighlight() {
+  dom.sqlHighlightCode.innerHTML = SqlHighlighter.highlight(dom.sqlInput.value);
+  syncSqlHighlightScroll();
+}
+
+function syncSqlHighlightScroll() {
+  dom.sqlHighlight.style.transform = `translate(${-dom.sqlInput.scrollLeft}px, ${-dom.sqlInput.scrollTop}px)`;
+}
+
+dom.sqlResizeHandle.addEventListener('pointerdown', (event) => {
+  if (event.button !== 0 || window.matchMedia('(max-width: 760px)').matches || dom.workspace.classList.contains('sidebar-collapsed')) return;
+  event.preventDefault();
+  dom.workspace.classList.add('is-resizing');
+  dom.sqlResizeHandle.setPointerCapture(event.pointerId);
+});
+
+dom.sqlResizeHandle.addEventListener('pointermove', (event) => {
+  if (!dom.workspace.classList.contains('is-resizing')) return;
+  const workspaceLeft = dom.workspace.getBoundingClientRect().left;
+  setSqlSidebarWidth(event.clientX - workspaceLeft);
+});
+
+function finishSqlSidebarResize(event) {
+  if (!dom.workspace.classList.contains('is-resizing')) return;
+  dom.workspace.classList.remove('is-resizing');
+  if (event && dom.sqlResizeHandle.hasPointerCapture(event.pointerId)) {
+    dom.sqlResizeHandle.releasePointerCapture(event.pointerId);
+  }
+  saveToLocalStorage();
+}
+
+dom.sqlResizeHandle.addEventListener('pointerup', finishSqlSidebarResize);
+dom.sqlResizeHandle.addEventListener('pointercancel', finishSqlSidebarResize);
+dom.sqlResizeHandle.addEventListener('keydown', (event) => {
+  if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+  event.preventDefault();
+  const direction = event.key === 'ArrowRight' ? 1 : -1;
+  const step = event.shiftKey ? 40 : 16;
+  setSqlSidebarWidth(sqlSidebarWidth + direction * step);
+  saveToLocalStorage();
+});
+
+window.addEventListener('resize', renderSqlSidebarWidth);
 
 /* ========================================================================== 
    2. RENDERIZADO DEL DIAGRAMA
@@ -760,12 +826,13 @@ function saveToLocalStorage() {
 
 function createProjectSnapshot() {
   return {
-    version: '1.2',
+    version: '1.3',
     tables: Array.from(state.tables.entries()),
     links: state.links,
     sqlText: dom.sqlInput.value,
     appliedSql: lastAppliedSql,
     sqlFileName,
+    editorWidth: sqlSidebarWidth,
     panX: state.panX,
     panY: state.panY,
     zoom: state.zoom,
@@ -839,6 +906,7 @@ function normalizeProject(data) {
     panX: finiteOr(data.panX, 40),
     panY: finiteOr(data.panY, 40),
     zoom: Math.min(3, Math.max(0.2, finiteOr(data.zoom, 1))),
+    editorWidth: Math.min(720, Math.max(280, finiteOr(data.editorWidth, 380))),
     showCardinalities: data.showCardinalities !== false
   };
 }
@@ -851,6 +919,9 @@ function applyProject(data) {
   dom.sqlInput.value = typeof data.sqlText === 'string' ? data.sqlText : '';
   lastAppliedSql = typeof data.appliedSql === 'string' ? data.appliedSql : '';
   sqlFileName = normalizeSqlFilename(data.sqlFileName || 'schema.sql');
+  sqlSidebarWidth = project.editorWidth;
+  renderSqlSidebarWidth();
+  updateSqlHighlight();
   const hasPendingChanges = dom.sqlInput.value !== lastAppliedSql;
   setSqlEditorStatus(hasPendingChanges ? 'Cambios pendientes' : lastAppliedSql ? 'Diagrama actualizado' : 'Sin SQL cargado', hasPendingChanges);
   state.selectedTable = null;
@@ -1107,6 +1178,8 @@ function onSqlDraftChanged() {
 }
 
 dom.sqlInput.addEventListener('input', onSqlDraftChanged);
+dom.sqlInput.addEventListener('input', updateSqlHighlight);
+dom.sqlInput.addEventListener('scroll', syncSqlHighlightScroll);
 dom.sqlInput.addEventListener('keydown', (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
     event.preventDefault();
@@ -1119,6 +1192,7 @@ dom.sqlInput.addEventListener('keydown', (event) => {
     const start = dom.sqlInput.selectionStart;
     const end = dom.sqlInput.selectionEnd;
     dom.sqlInput.setRangeText('  ', start, end, 'end');
+    updateSqlHighlight();
     onSqlDraftChanged();
   }
 });
@@ -1130,6 +1204,7 @@ dom.fileImportSql.addEventListener('change', (e) => {
   reader.onload = (event) => {
     dom.sqlInput.value = event.target.result;
     sqlFileName = normalizeSqlFilename(file.name);
+    updateSqlHighlight();
     onSqlDraftChanged();
   };
   reader.readAsText(file);
@@ -1142,6 +1217,7 @@ document.getElementById('btn-load-sample-sql').addEventListener('click', async (
     if (res.ok) {
       dom.sqlInput.value = await res.text();
       sqlFileName = 'sample.sql';
+      updateSqlHighlight();
       onSqlDraftChanged();
     } else {
       loadFallbackSample();
@@ -1190,6 +1266,7 @@ CREATE TABLE order_items (
     product_id INT REFERENCES products(id),
     quantity INT NOT NULL
 );`;
+  updateSqlHighlight();
   onSqlDraftChanged();
 }
 
@@ -1259,6 +1336,7 @@ window.addEventListener('click', (e) => {
    ========================================================================== */
 
 function init() {
+  renderSqlSidebarWidth();
   setSqlSidebarOpen(true);
   const loaded = loadFromLocalStorage();
   if (!loaded) {

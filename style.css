@@ -388,8 +388,8 @@ body {
 }
 
 .sql-sidebar {
-  width: 360px;
-  flex: 0 0 360px;
+  width: var(--sql-sidebar-width, 380px);
+  flex: 0 0 var(--sql-sidebar-width, 380px);
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -414,7 +414,7 @@ body {
 
 .workspace.sidebar-collapsed .sql-sidebar-header > div,
 .workspace.sidebar-collapsed .sql-sidebar-tools,
-.workspace.sidebar-collapsed #sql-input,
+.workspace.sidebar-collapsed #sql-editor,
 .workspace.sidebar-collapsed .sql-sidebar-footer {
   display: none;
 }
@@ -427,6 +427,10 @@ body {
   background: #1e293b;
   border: 1px solid var(--border-color);
   color: var(--text-main);
+}
+
+.workspace.sidebar-collapsed .sql-resize-handle {
+  display: none;
 }
 
 .sql-sidebar-header {
@@ -458,28 +462,158 @@ body {
   justify-content: center;
 }
 
-#sql-input {
-  display: block;
+.sql-editor {
+  position: relative;
   flex: 1;
   min-height: 120px;
   width: 100%;
-  padding: 12px;
-  resize: none;
-  outline: none;
+  overflow: hidden;
   border: 1px solid var(--border-color);
   border-radius: 6px;
   background: #0b1120;
-  color: #e2e8f0;
+}
+
+.sql-editor:focus-within {
+  border-color: var(--primary);
+}
+
+#sql-highlight,
+#sql-input {
+  box-sizing: border-box;
   font-family: var(--font-mono);
   font-size: 12px;
+  font-weight: 400;
+  font-variant-ligatures: none;
+  letter-spacing: normal;
   line-height: 1.55;
   tab-size: 2;
+  text-align: left;
+  text-transform: none;
+}
+
+#sql-highlight {
+  position: absolute;
+  inset: 0 auto auto 0;
+  min-width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding: 12px;
+  overflow: visible;
+  color: #d4d4d4;
+  white-space: pre;
+  pointer-events: none;
+  will-change: transform;
+}
+
+#sql-highlight code {
+  font: inherit;
+  font-variant-ligatures: none;
+}
+
+#sql-input {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 12px;
+  resize: none;
+  outline: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  caret-color: #f8fafc;
+  overflow: auto;
+  white-space: pre;
   user-select: text;
   -webkit-user-select: text;
 }
 
-#sql-input:focus {
-  border-color: var(--primary);
+#sql-input::selection {
+  background: rgba(59, 130, 246, 0.42);
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+#sql-input::placeholder {
+  color: #64748b;
+  -webkit-text-fill-color: #64748b;
+}
+
+.sql-token-comment { color: #6a9955; font-style: italic; }
+.sql-token-string { color: #ce9178; }
+.sql-token-identifier { color: #9cdcfe; }
+.sql-token-number { color: #b5cea8; }
+.sql-token-keyword { color: #569cd6; }
+.sql-token-type { color: #4ec9b0; }
+.sql-token-function { color: #dcdcaa; }
+
+.sql-resize-handle {
+  position: relative;
+  z-index: 3;
+  flex: 0 0 18px;
+  width: 18px;
+  margin-left: -9px;
+  margin-right: -9px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.sql-resize-handle::after {
+  position: absolute;
+  inset: 0 7px;
+  content: '';
+  background: #475569;
+  transition: inset 0.15s ease, background-color 0.15s ease;
+}
+
+.sql-resize-handle::before {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  left: 50%;
+  width: 10px;
+  height: 48px;
+  content: '';
+  transform: translate(-50%, -50%);
+  border: 1px solid #64748b;
+  border-radius: 6px;
+  background:
+    radial-gradient(circle, #cbd5e1 1px, transparent 1.5px) center / 4px 7px repeat-y,
+    #1e293b;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.32);
+  opacity: 1;
+  pointer-events: none;
+}
+
+.sql-resize-handle:hover::after,
+.workspace.is-resizing .sql-resize-handle::after {
+  inset: 0 5px;
+  background: #60a5fa;
+}
+
+.sql-resize-handle:hover::before,
+.workspace.is-resizing .sql-resize-handle::before {
+  border-color: #60a5fa;
+  background-color: #172554;
+}
+
+.sql-resize-handle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.workspace.is-resizing,
+.workspace.is-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+.workspace.is-resizing .sql-sidebar {
+  transition: none;
 }
 
 .sql-sidebar-footer {
@@ -714,7 +848,13 @@ body {
     position: absolute;
     inset: 0 auto 0 0;
     z-index: 40;
+    width: min(var(--sql-sidebar-width, 380px), calc(100vw - 44px));
+    flex-basis: min(var(--sql-sidebar-width, 380px), calc(100vw - 44px));
     box-shadow: 12px 0 32px rgba(0, 0, 0, 0.45);
+  }
+
+  .sql-resize-handle {
+    display: none;
   }
 
   .sql-sidebar-header .btn-icon {

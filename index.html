@@ -80,7 +80,10 @@
         <button id="btn-load-sample-sql" class="btn btn-secondary" type="button">Ejemplo</button>
         <input type="file" id="file-import-sql" accept=".sql,.txt" hidden>
       </div>
-      <textarea id="sql-input" spellcheck="false" wrap="off" aria-label="Contenido del archivo SQL" placeholder="CREATE TABLE usuarios (&#10;    id SERIAL PRIMARY KEY,&#10;    nombre VARCHAR(100)&#10;);"></textarea>
+      <div id="sql-editor" class="sql-editor">
+        <pre id="sql-highlight" class="sql-highlight" aria-hidden="true"><code id="sql-highlight-code"></code></pre>
+        <textarea id="sql-input" spellcheck="false" wrap="off" autocapitalize="off" autocomplete="off" aria-label="Contenido del archivo SQL" placeholder="CREATE TABLE usuarios (&#10;    id SERIAL PRIMARY KEY,&#10;    nombre VARCHAR(100)&#10;);"></textarea>
+      </div>
       <div class="sql-sidebar-footer">
         <span id="sql-editor-status" class="sql-editor-status">Sin cambios</span>
         <div class="sql-sidebar-footer-actions">
@@ -90,6 +93,8 @@
         <span class="sql-editor-shortcut">Tab sangra · Ctrl + Enter aplica · Ctrl + S descarga</span>
       </div>
     </aside>
+
+    <div id="sql-resize-handle" class="sql-resize-handle" role="separator" aria-orientation="vertical" aria-valuemin="280" aria-valuemax="720" aria-valuenow="380" tabindex="0" aria-label="Cambiar el ancho del editor SQL" title="Arrastra para cambiar el ancho; usa las flechas del teclado"></div>
 
     <main id="viewport" class="viewport">
       <div id="canvas" class="canvas">
@@ -166,6 +171,7 @@
   </footer>
 
   <script src="sql-parser.js"></script>
+  <script src="sql-highlighter.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
