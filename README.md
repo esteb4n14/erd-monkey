@@ -47,6 +47,8 @@ El importador está enfocado en DDL de PostgreSQL. Reconoce tablas con esquema, 
 
 Las definiciones que no se puedan interpretar y las referencias a tablas o columnas que falten se informan como advertencias al generar el diagrama. El importador no ejecuta el SQL ni conecta con una base de datos.
 
+El editor SQL está integrado en el panel lateral. Puedes abrir un archivo, editar su contenido, descargar la versión modificada (`Ctrl + S`) y pulsar **Actualizar diagrama** (`Ctrl + Enter`). `Tab` inserta sangría. El texto se guarda automáticamente como borrador; al plegar el panel queda una pestaña para volver a mostrarlo, y también puedes abrirlo desde **Editor SQL** en la barra superior.
+
 ## Estructura del código
 
 - `sql-parser.js`: tokenización del SQL PostgreSQL y extracción de tablas, columnas, restricciones y relaciones.

@@ -18,9 +18,9 @@
     </div>
 
     <div class="toolbar-actions">
-      <button id="btn-import-sql" class="btn btn-primary" title="Importar o pegar script SQL">
+      <button id="btn-import-sql" class="btn btn-primary active" title="Ocultar editor SQL" aria-expanded="true" aria-controls="sql-sidebar">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
-        Importar SQL
+        Editor SQL
       </button>
 
       <button id="btn-auto-layout" class="btn btn-secondary" title="Reorganizar tablas automáticamente">
@@ -65,44 +65,44 @@
     </div>
   </header>
 
-  <!-- ÁREA DE TRABAJO (CANVAS INFINITO) -->
-  <main id="viewport" class="viewport">
-    <div id="canvas" class="canvas">
-      <!-- CAPA SVG PARA LAS RELACIONES -->
-      <svg id="svg-layer" class="svg-layer">
-        <defs>
-          <filter id="line-shadow" x="-20%" y="-20%" width="140%" height="140%">
-            <feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.3" />
-          </filter>
-        </defs>
-      </svg>
-      <!-- CAPA DE TABLAS DOM -->
-      <div id="tables-layer" class="tables-layer"></div>
-    </div>
-  </main>
-
-  <!-- MODAL DE IMPORTAR SQL -->
-  <div id="modal-sql" class="modal-backdrop">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3>Importar Script PostgreSQL</h3>
-        <button id="btn-close-modal" class="btn-close">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p class="modal-hint">
-          Pega tu script SQL (con sentencias <code>CREATE TABLE</code>, <code>PRIMARY KEY</code> y <code>FOREIGN KEY / REFERENCES</code>) o carga un archivo <code>.sql</code>.
-        </p>
-        <div class="modal-file-bar">
-          <input type="file" id="file-import-sql" accept=".sql,.txt">
-          <button id="btn-load-sample-sql" class="btn btn-sm btn-secondary">Cargar Ejemplo Incluido</button>
+  <!-- EDITOR SQL LATERAL Y ÁREA DE TRABAJO -->
+  <div id="workspace" class="workspace">
+    <aside id="sql-sidebar" class="sql-sidebar" aria-label="Editor SQL">
+      <div class="sql-sidebar-header">
+        <div>
+          <h2>Editor SQL</h2>
+          <p>Modifica el esquema y actualiza el diagrama.</p>
         </div>
-        <textarea id="sql-input" placeholder="CREATE TABLE usuarios (&#10;    id SERIAL PRIMARY KEY,&#10;    nombre VARCHAR(100)&#10;);"></textarea>
+        <button id="btn-hide-sql-sidebar" class="btn btn-icon" type="button" title="Ocultar editor SQL" aria-label="Ocultar editor SQL">‹</button>
       </div>
-      <div class="modal-footer">
-        <button id="btn-cancel-modal" class="btn btn-secondary">Cancelar</button>
-        <button id="btn-process-sql" class="btn btn-primary">Generar Diagrama</button>
+      <div class="sql-sidebar-tools">
+        <button id="btn-open-sql-file" class="btn btn-secondary" type="button">Abrir .sql</button>
+        <button id="btn-load-sample-sql" class="btn btn-secondary" type="button">Ejemplo</button>
+        <input type="file" id="file-import-sql" accept=".sql,.txt" hidden>
       </div>
-    </div>
+      <textarea id="sql-input" spellcheck="false" wrap="off" aria-label="Contenido del archivo SQL" placeholder="CREATE TABLE usuarios (&#10;    id SERIAL PRIMARY KEY,&#10;    nombre VARCHAR(100)&#10;);"></textarea>
+      <div class="sql-sidebar-footer">
+        <span id="sql-editor-status" class="sql-editor-status">Sin cambios</span>
+        <div class="sql-sidebar-footer-actions">
+          <button id="btn-process-sql" class="btn btn-primary" type="button">Actualizar diagrama</button>
+          <button id="btn-download-sql" class="btn btn-secondary" type="button">Descargar .sql</button>
+        </div>
+        <span class="sql-editor-shortcut">Tab sangra · Ctrl + Enter aplica · Ctrl + S descarga</span>
+      </div>
+    </aside>
+
+    <main id="viewport" class="viewport">
+      <div id="canvas" class="canvas">
+        <svg id="svg-layer" class="svg-layer">
+          <defs>
+            <filter id="line-shadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="1" stdDeviation="1" flood-opacity="0.3" />
+            </filter>
+          </defs>
+        </svg>
+        <div id="tables-layer" class="tables-layer"></div>
+      </div>
+    </main>
   </div>
 
   <!-- POPUP FLOTANTE PARA EDITAR COLOR/ESTILO DE RELACIÓN SELECCIONADA -->

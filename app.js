@@ -24,14 +24,20 @@ const state = {
   showCardinalities: true,
 };
 
+let lastAppliedSql = '';
+let sqlDraftSaveTimer = null;
+let sqlFileName = 'schema.sql';
+
 // ELEMENTOS DOM
 const dom = {
+  workspace: document.getElementById('workspace'),
+  sqlSidebar: document.getElementById('sql-sidebar'),
+  sqlEditorStatus: document.getElementById('sql-editor-status'),
   viewport: document.getElementById('viewport'),
   canvas: document.getElementById('canvas'),
   svgLayer: document.getElementById('svg-layer'),
   tablesLayer: document.getElementById('tables-layer'),
   zoomLevel: document.getElementById('zoom-level'),
-  modalSql: document.getElementById('modal-sql'),
   sqlInput: document.getElementById('sql-input'),
   linkPopover: document.getElementById('link-popover'),
   linkColorInput: document.getElementById('link-color-input'),
@@ -53,6 +59,26 @@ function getCanvasCoords(clientX, clientY) {
     x: (clientX - state.panX) / state.zoom,
     y: (clientY - state.panY) / state.zoom
   };
+}
+
+function setSqlEditorStatus(message, pending = false) {
+  dom.sqlEditorStatus.textContent = message;
+  dom.sqlEditorStatus.classList.toggle('pending', pending);
+}
+
+function setSqlSidebarOpen(isOpen) {
+  dom.workspace.classList.toggle('sidebar-collapsed', !isOpen);
+  dom.sqlSidebar.querySelector('.sql-sidebar-tools').inert = !isOpen;
+  dom.sqlInput.inert = !isOpen;
+  dom.sqlSidebar.querySelector('.sql-sidebar-footer').inert = !isOpen;
+  const sidebarToggle = document.getElementById('btn-hide-sql-sidebar');
+  sidebarToggle.textContent = isOpen ? '‹' : '›';
+  sidebarToggle.setAttribute('aria-label', isOpen ? 'Ocultar editor SQL' : 'Mostrar editor SQL');
+  sidebarToggle.title = isOpen ? 'Ocultar editor SQL' : 'Mostrar editor SQL';
+  const toggle = document.getElementById('btn-import-sql');
+  toggle.classList.toggle('active', isOpen);
+  toggle.setAttribute('aria-expanded', String(isOpen));
+  toggle.title = isOpen ? 'Ocultar editor SQL' : 'Mostrar editor SQL';
 }
 
 /* ========================================================================== 
@@ -734,9 +760,12 @@ function saveToLocalStorage() {
 
 function createProjectSnapshot() {
   return {
-    version: '1.1',
+    version: '1.2',
     tables: Array.from(state.tables.entries()),
     links: state.links,
+    sqlText: dom.sqlInput.value,
+    appliedSql: lastAppliedSql,
+    sqlFileName,
     panX: state.panX,
     panY: state.panY,
     zoom: state.zoom,
@@ -746,6 +775,12 @@ function createProjectSnapshot() {
 
 function isValidColor(value) {
   return typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
+}
+
+function normalizeSqlFilename(name) {
+  const safeName = String(name).replace(/[<>:"\/\\|?*\u0000-\u001f]/g, '_').trim();
+  if (!safeName) return 'schema.sql';
+  return /\.sql$/i.test(safeName) ? safeName : `${safeName.replace(/\.[^.]+$/, '')}.sql`;
 }
 
 function normalizeProject(data) {
@@ -813,6 +848,11 @@ function applyProject(data) {
   if (!project) throw new Error('Estructura de proyecto inválida.');
   state.tables = project.tables;
   state.links = project.links;
+  dom.sqlInput.value = typeof data.sqlText === 'string' ? data.sqlText : '';
+  lastAppliedSql = typeof data.appliedSql === 'string' ? data.appliedSql : '';
+  sqlFileName = normalizeSqlFilename(data.sqlFileName || 'schema.sql');
+  const hasPendingChanges = dom.sqlInput.value !== lastAppliedSql;
+  setSqlEditorStatus(hasPendingChanges ? 'Cambios pendientes' : lastAppliedSql ? 'Diagrama actualizado' : 'Sin SQL cargado', hasPendingChanges);
   state.selectedTable = null;
   state.selectedLink = null;
   state.panX = project.panX;
@@ -1040,18 +1080,48 @@ document.getElementById('btn-export-png').addEventListener('click', () => {
   link.click();
 });
 
-/* ==========================================================================
-   8. EVENTOS DE UI Y MODALES
+/* ========================================================================== 
+   8. EDITOR SQL Y EVENTOS DE UI
    ========================================================================== */
 
 document.getElementById('btn-import-sql').addEventListener('click', () => {
-  dom.modalSql.classList.add('active');
-  dom.sqlInput.focus();
+  const isOpen = !dom.workspace.classList.contains('sidebar-collapsed');
+  setSqlSidebarOpen(!isOpen);
+  if (!isOpen) dom.sqlInput.focus();
 });
 
-const closeModal = () => dom.modalSql.classList.remove('active');
-document.getElementById('btn-close-modal').addEventListener('click', closeModal);
-document.getElementById('btn-cancel-modal').addEventListener('click', closeModal);
+document.getElementById('btn-hide-sql-sidebar').addEventListener('click', () => {
+  const isOpen = !dom.workspace.classList.contains('sidebar-collapsed');
+  setSqlSidebarOpen(!isOpen);
+  if (!isOpen) dom.sqlInput.focus();
+});
+document.getElementById('btn-open-sql-file').addEventListener('click', () => dom.fileImportSql.click());
+
+function onSqlDraftChanged() {
+  const hasPendingChanges = dom.sqlInput.value !== lastAppliedSql;
+  setSqlEditorStatus(hasPendingChanges ? 'Cambios pendientes' : 'Diagrama actualizado', hasPendingChanges);
+  clearTimeout(sqlDraftSaveTimer);
+  sqlDraftSaveTimer = setTimeout(() => {
+    if (state.tables.size) saveToLocalStorage();
+  }, 300);
+}
+
+dom.sqlInput.addEventListener('input', onSqlDraftChanged);
+dom.sqlInput.addEventListener('keydown', (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+    event.preventDefault();
+    document.getElementById('btn-process-sql').click();
+  } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+    event.preventDefault();
+    downloadSqlSource();
+  } else if (event.key === 'Tab') {
+    event.preventDefault();
+    const start = dom.sqlInput.selectionStart;
+    const end = dom.sqlInput.selectionEnd;
+    dom.sqlInput.setRangeText('  ', start, end, 'end');
+    onSqlDraftChanged();
+  }
+});
 
 dom.fileImportSql.addEventListener('change', (e) => {
   const file = e.target.files[0];
@@ -1059,8 +1129,11 @@ dom.fileImportSql.addEventListener('change', (e) => {
   const reader = new FileReader();
   reader.onload = (event) => {
     dom.sqlInput.value = event.target.result;
+    sqlFileName = normalizeSqlFilename(file.name);
+    onSqlDraftChanged();
   };
   reader.readAsText(file);
+  dom.fileImportSql.value = '';
 });
 
 document.getElementById('btn-load-sample-sql').addEventListener('click', async () => {
@@ -1068,6 +1141,8 @@ document.getElementById('btn-load-sample-sql').addEventListener('click', async (
     const res = await fetch('sample.sql');
     if (res.ok) {
       dom.sqlInput.value = await res.text();
+      sqlFileName = 'sample.sql';
+      onSqlDraftChanged();
     } else {
       loadFallbackSample();
     }
@@ -1077,6 +1152,7 @@ document.getElementById('btn-load-sample-sql').addEventListener('click', async (
 });
 
 function loadFallbackSample() {
+  sqlFileName = 'sample.sql';
   dom.sqlInput.value = `-- Ejemplo Rápido PostgreSQL
 CREATE TABLE roles (
     id SERIAL PRIMARY KEY,
@@ -1114,12 +1190,26 @@ CREATE TABLE order_items (
     product_id INT REFERENCES products(id),
     quantity INT NOT NULL
 );`;
+  onSqlDraftChanged();
 }
+
+function downloadSqlSource() {
+  const blob = new Blob([dom.sqlInput.value], { type: 'text/sql;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = normalizeSqlFilename(sqlFileName);
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+document.getElementById('btn-download-sql').addEventListener('click', downloadSqlSource);
 
 document.getElementById('btn-process-sql').addEventListener('click', () => {
   const sql = dom.sqlInput.value.trim();
   if (!sql) {
     alert('Por favor pega o carga un script SQL primero.');
+    setSqlEditorStatus('No hay SQL para aplicar', true);
     return;
   }
 
@@ -1127,6 +1217,7 @@ document.getElementById('btn-process-sql').addEventListener('click', () => {
   if (result.tables.size === 0) {
     const details = result.diagnostics.length ? `\n\n${result.diagnostics.join('\n')}` : '';
     alert(`No se detectaron sentencias CREATE TABLE válidas en el SQL.${details}`);
+    setSqlEditorStatus('No se pudo generar el diagrama', true);
     return;
   }
 
@@ -1135,7 +1226,8 @@ document.getElementById('btn-process-sql').addEventListener('click', () => {
   state.selectedTable = null;
   state.selectedLink = null;
 
-  closeModal();
+  lastAppliedSql = dom.sqlInput.value;
+  setSqlEditorStatus(result.diagnostics.length ? 'Aplicado con advertencias' : 'Diagrama actualizado');
   renderDiagram();
   saveToLocalStorage();
   if (result.diagnostics.length) {
@@ -1167,12 +1259,15 @@ window.addEventListener('click', (e) => {
    ========================================================================== */
 
 function init() {
+  setSqlSidebarOpen(true);
   const loaded = loadFromLocalStorage();
   if (!loaded) {
     loadFallbackSample();
     const result = SqlParser.parse(dom.sqlInput.value);
     state.tables = result.tables;
     state.links = result.links;
+    lastAppliedSql = dom.sqlInput.value;
+    setSqlEditorStatus('Diagrama actualizado');
     renderDiagram();
     saveToLocalStorage();
   }
