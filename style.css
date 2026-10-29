@@ -219,6 +219,8 @@ body {
 .table-node {
   position: absolute;
   width: 250px;
+  min-width: 180px;
+  max-width: 900px;
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 8px;
@@ -317,9 +319,13 @@ body {
 .table-body {
   padding: 4px 0;
   background-color: var(--bg-card);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
 .table-col {
+  min-width: 0;
   padding: 5px 12px;
   display: flex;
   align-items: center;
@@ -339,9 +345,61 @@ body {
 
 .col-left {
   display: flex;
+  flex: 1 1 auto;
   align-items: center;
   gap: 6px;
+  min-width: 0;
   overflow: hidden;
+}
+
+.col-name {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.col-type {
+  flex: 0 1 auto;
+  max-width: 48%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.table-resize-handle {
+  position: absolute;
+  right: 1px;
+  bottom: 1px;
+  z-index: 2;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: 0;
+  border-radius: 0 0 6px 0;
+  background:
+    linear-gradient(135deg, transparent 42%, #64748b 45%, #64748b 51%, transparent 54%) 5px 10px / 8px 6px no-repeat,
+    linear-gradient(135deg, transparent 42%, #64748b 45%, #64748b 51%, transparent 54%) 9px 6px / 6px 8px no-repeat;
+  cursor: nwse-resize;
+  opacity: 0.78;
+  touch-action: none;
+}
+
+.table-resize-handle:hover,
+.table-node.selected .table-resize-handle {
+  background:
+    linear-gradient(135deg, transparent 42%, #7dd3fc 45%, #7dd3fc 51%, transparent 54%) 5px 10px / 8px 6px no-repeat,
+    linear-gradient(135deg, transparent 42%, #7dd3fc 45%, #7dd3fc 51%, transparent 54%) 9px 6px / 6px 8px no-repeat;
+  opacity: 1;
+}
+
+.table-resize-handle:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: -2px;
+}
+
+.table-node.is-resizing,
+.table-node.is-resizing * {
+  user-select: none !important;
 }
 
 .col-badge {

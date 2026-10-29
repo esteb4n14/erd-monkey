@@ -31,13 +31,15 @@ Modelador visual interactivo de diagramas Entidad-Relación (ERD) diseñado espe
    - Solo **arrastra ese punto con el mouse** para mover o curvar la línea manualmente en cualquier dirección (ideal para separar líneas paralelas o que se cruzan).
    - Puedes hacer **doble clic en el punto** para restablecer la curva a automática.
    - En el menú flotante del enlace tienes botones para **"+ Añadir punto vector"** o **"↺ Restablecer curva"**.
-7. **Control manual total de orden y posiciones**:
+7. **Control manual de orden, posiciones y tamaño**:
    - Arrastra libremente cada tabla para acomodarla exactamente como quieras.
+   - Arrastra la esquina inferior derecha para ajustar el ancho y el alto de cada tabla. Si el alto es menor que el contenido, puedes desplazarte dentro de la tarjeta; las dimensiones se conservan al guardar, exportar o volver a aplicar el SQL.
+   - Con el control de tamaño seleccionado, usa las flechas para cambiar ancho y alto (`Shift` aumenta el paso).
    - Paneo del lienzo manteniendo presionado el **clic derecho** o arrastrando el fondo.
    - Zoom suave con la **rueda del ratón** o los botones de la barra superior.
    - Botón **"Auto Orden"** si deseas una distribución automática inicial.
-7. **Guardar y Exportar**:
-   - **Guardar / Cargar**: Exporta e importa tu diagrama en archivo `.json` conservando todas las posiciones y colores manuales.
+8. **Guardar y Exportar**:
+   - **Guardar / Cargar**: Exporta e importa tu diagrama en archivo `.json` conservando posiciones, tamaños y colores manuales.
    - **Autoguardado**: Guarda automáticamente en tu navegador para que nunca pierdas tu trabajo si cierras la pestaña.
    - **Exportar PNG**: Descarga tu diagrama en alta calidad con un solo clic.
 

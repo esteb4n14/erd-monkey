@@ -28,6 +28,15 @@ let lastAppliedSql = '';
 let sqlDraftSaveTimer = null;
 let sqlFileName = 'schema.sql';
 let sqlSidebarWidth = 380;
+let tableResizeSession = null;
+
+const TABLE_SIZE = Object.freeze({
+  defaultWidth: 250,
+  minWidth: 180,
+  maxWidth: 900,
+  minHeight: 120,
+  maxHeight: 1200
+});
 
 // ELEMENTOS DOM
 const dom = {
@@ -167,6 +176,8 @@ function renderTables() {
     tableEl.id = `node-${table.id}`;
     tableEl.style.left = `${table.x}px`;
     tableEl.style.top = `${table.y}px`;
+    tableEl.style.width = `${table.width || TABLE_SIZE.defaultWidth}px`;
+    if (table.height) tableEl.style.height = `${table.height}px`;
 
     // Cabecera con selector de color
     const headerEl = document.createElement('div');
@@ -250,7 +261,95 @@ function renderTables() {
     tableEl.appendChild(headerEl);
     tableEl.appendChild(bodyEl);
     dom.tablesLayer.appendChild(tableEl);
+    tableEl.appendChild(createTableResizeHandle(table, tableEl));
   });
+}
+
+function createTableResizeHandle(table, tableEl) {
+  const handle = document.createElement('button');
+  handle.type = 'button';
+  handle.className = 'table-resize-handle';
+  handle.setAttribute('aria-label', `Cambiar tamaño de la tabla ${table.name}`);
+  handle.title = 'Arrastra para cambiar ancho y alto · Usa las flechas del teclado';
+
+  const updateAccessibleSize = () => {
+    const width = Math.round(tableEl.offsetWidth);
+    const height = Math.round(tableEl.offsetHeight);
+    handle.setAttribute('aria-valuetext', `${width} por ${height} píxeles`);
+  };
+
+  handle.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    selectTable(table.id);
+    tableResizeSession = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startWidth: tableEl.offsetWidth,
+      startHeight: tableEl.offsetHeight,
+      zoom: state.zoom,
+      table,
+      tableEl,
+      handle
+    };
+    tableEl.classList.add('is-resizing');
+    handle.setPointerCapture(event.pointerId);
+  });
+
+  handle.addEventListener('pointermove', (event) => {
+    const session = tableResizeSession;
+    if (!session || session.pointerId !== event.pointerId) return;
+    const scale = session.zoom || 1;
+    setTableDimensions(
+      session.table,
+      session.startWidth + (event.clientX - session.startX) / scale,
+      session.startHeight + (event.clientY - session.startY) / scale,
+      session.tableEl
+    );
+    updateAccessibleSize();
+    renderLinks();
+  });
+
+  const finishResize = (event) => {
+    if (!tableResizeSession || tableResizeSession.pointerId !== event.pointerId) return;
+    tableResizeSession.tableEl.classList.remove('is-resizing');
+    if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
+    tableResizeSession = null;
+    updateAccessibleSize();
+    saveToLocalStorage();
+    renderLinks();
+  };
+
+  handle.addEventListener('pointerup', finishResize);
+  handle.addEventListener('pointercancel', finishResize);
+  handle.addEventListener('keydown', (event) => {
+    const step = event.shiftKey ? 40 : 16;
+    let width = tableEl.offsetWidth;
+    let height = tableEl.offsetHeight;
+    if (event.key === 'ArrowLeft') width -= step;
+    else if (event.key === 'ArrowRight') width += step;
+    else if (event.key === 'ArrowUp') height -= step;
+    else if (event.key === 'ArrowDown') height += step;
+    else return;
+    event.preventDefault();
+    event.stopPropagation();
+    setTableDimensions(table, width, height, tableEl);
+    updateAccessibleSize();
+    renderLinks();
+    saveToLocalStorage();
+  });
+
+  updateAccessibleSize();
+  return handle;
+}
+
+function setTableDimensions(table, width, height, tableEl) {
+  table.width = Math.round(Math.min(TABLE_SIZE.maxWidth, Math.max(TABLE_SIZE.minWidth, width)));
+  table.height = Math.round(Math.min(TABLE_SIZE.maxHeight, Math.max(TABLE_SIZE.minHeight, height)));
+  tableEl.style.width = `${table.width}px`;
+  tableEl.style.height = `${table.height}px`;
 }
 
 function getPortElementId(tableId, columnName) {
@@ -781,20 +880,36 @@ if (dom.btnResetLine) {
    ========================================================================== */
 
 function autoLayoutTables() {
-  const count = state.tables.size;
-  if (count === 0) return;
+  const tables = Array.from(state.tables.values());
+  if (tables.length === 0) return;
 
-  const cols = Math.ceil(Math.sqrt(count * 1.5));
-  const colWidth = 320;
-  const rowHeight = 350;
+  const columns = Math.ceil(Math.sqrt(tables.length * 1.5));
+  const rows = Math.ceil(tables.length / columns);
+  const columnWidths = Array(columns).fill(0);
+  const rowHeights = Array(rows).fill(0);
 
-  let index = 0;
-  state.tables.forEach((table) => {
-    const col = index % cols;
-    const row = Math.floor(index / cols);
-    table.x = 80 + col * colWidth;
-    table.y = 80 + row * rowHeight;
-    index++;
+  tables.forEach((table, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    const estimatedHeight = 46 + table.columns.length * 26;
+    columnWidths[column] = Math.max(columnWidths[column], table.width || TABLE_SIZE.defaultWidth);
+    rowHeights[row] = Math.max(rowHeights[row], table.height || estimatedHeight);
+  });
+
+  const columnOffsets = [80];
+  const rowOffsets = [80];
+  for (let index = 1; index < columns; index++) {
+    columnOffsets[index] = columnOffsets[index - 1] + columnWidths[index - 1] + 70;
+  }
+  for (let index = 1; index < rows; index++) {
+    rowOffsets[index] = rowOffsets[index - 1] + rowHeights[index - 1] + 70;
+  }
+
+  tables.forEach((table, index) => {
+    const column = index % columns;
+    const row = Math.floor(index / columns);
+    table.x = columnOffsets[column];
+    table.y = rowOffsets[row];
   });
 
   renderDiagram();
@@ -826,7 +941,7 @@ function saveToLocalStorage() {
 
 function createProjectSnapshot() {
   return {
-    version: '1.3',
+    version: '1.4',
     tables: Array.from(state.tables.entries()),
     links: state.links,
     sqlText: dom.sqlInput.value,
@@ -872,6 +987,12 @@ function normalizeProject(data) {
       columns,
       x: source.x,
       y: source.y,
+      width: Number.isFinite(source.width)
+        ? Math.min(TABLE_SIZE.maxWidth, Math.max(TABLE_SIZE.minWidth, source.width))
+        : TABLE_SIZE.defaultWidth,
+      height: Number.isFinite(source.height)
+        ? Math.min(TABLE_SIZE.maxHeight, Math.max(TABLE_SIZE.minHeight, source.height))
+        : null,
       color: isValidColor(source.color) ? source.color : '#1e3a8a'
     });
   }
@@ -1116,6 +1237,10 @@ document.getElementById('btn-export-png').addEventListener('click', () => {
     ctx.fillText(table.name, x + 12, y + 22);
 
     // Columnas
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x + 1, y + 35, Math.max(0, w - 2), Math.max(0, h - 36));
+    ctx.clip();
     let curY = y + 54;
     table.columns.forEach(col => {
       let textX = x + 12;
@@ -1143,6 +1268,7 @@ document.getElementById('btn-export-png').addEventListener('click', () => {
 
       curY += 26;
     });
+    ctx.restore();
   });
 
   const link = document.createElement('a');
@@ -1297,6 +1423,12 @@ document.getElementById('btn-process-sql').addEventListener('click', () => {
     setSqlEditorStatus('No se pudo generar el diagrama', true);
     return;
   }
+
+  result.tables.forEach((table) => {
+    const previousTable = state.tables.get(table.id);
+    table.width = previousTable?.width || TABLE_SIZE.defaultWidth;
+    if (Number.isFinite(previousTable?.height)) table.height = previousTable.height;
+  });
 
   state.tables = result.tables;
   state.links = result.links;
