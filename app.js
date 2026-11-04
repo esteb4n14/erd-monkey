@@ -254,6 +254,20 @@ function renderTables() {
       const colType = document.createElement('span');
       colType.className = 'col-type';
       colType.textContent = col.type;
+      colEl.title = 'Doble clic para editar nombre y tipo';
+      colEl.addEventListener('dblclick', event => {
+        event.stopPropagation();
+        if (dom.sqlInput.value !== lastAppliedSql) { alert('Aplica primero los cambios pendientes del SQL.'); return; }
+        const name = prompt('Nombre del campo:', col.name);
+        if (name === null) return;
+        const type = prompt('Tipo SQL del campo:', col.type);
+        if (type === null) return;
+        try {
+          dom.sqlInput.value = SqlParser.editColumn(dom.sqlInput.value, table.id, col.name, name, type);
+          updateSqlHighlight();
+          document.getElementById('btn-process-sql').click();
+        } catch (err) { alert(err.message); }
+      });
       colEl.append(colLeft, colType);
       bodyEl.appendChild(colEl);
     });
@@ -936,6 +950,7 @@ function saveToLocalStorage() {
     localStorage.setItem('erd_monkey_project', JSON.stringify(createProjectSnapshot()));
   } catch (err) {
     console.warn('No se pudo guardar en localStorage:', err);
+    setSqlEditorStatus('No se pudo autoguardar. Descarga el proyecto.', true);
   }
 }
 
@@ -1103,7 +1118,7 @@ dom.fileLoadProject.addEventListener('change', (e) => {
 });
 
 // Exportar a PNG
-document.getElementById('btn-export-png').addEventListener('click', () => {
+function exportDiagram(format) {
   if (state.tables.size === 0) {
     alert('No hay tablas para exportar.');
     return;
@@ -1117,12 +1132,16 @@ document.getElementById('btn-export-png').addEventListener('click', () => {
     minX = Math.min(minX, t.x);
     minY = Math.min(minY, t.y);
     maxX = Math.max(maxX, t.x + w);
-    maxY = Math.max(maxY, t.y + h);
+    maxY = Math.max(maxY, t.y + Math.max(h, 40 + t.columns.length * 26));
   });
 
-  const padding = 60;
-  const totalW = maxX - minX + padding * 2;
-  const totalH = maxY - minY + padding * 2;
+  state.links.forEach(link => (link.points || []).forEach(point => {
+    minX = Math.min(minX, point.x); minY = Math.min(minY, point.y);
+    maxX = Math.max(maxX, point.x); maxY = Math.max(maxY, point.y);
+  }));
+  const padding = 120;
+  const totalW = Math.ceil(maxX - minX + padding * 2);
+  const totalH = Math.ceil(maxY - minY + padding * 2);
 
   const tempCanvas = document.createElement('canvas');
   tempCanvas.width = totalW;
@@ -1204,7 +1223,7 @@ document.getElementById('btn-export-png').addEventListener('click', () => {
   state.tables.forEach(table => {
     const el = document.getElementById(`node-${table.id}`);
     const w = el ? el.offsetWidth : 250;
-    const h = el ? el.offsetHeight : 200;
+    const h = Math.max(el ? el.offsetHeight : 200, 40 + table.columns.length * 26);
     const x = table.x - minX + padding;
     const y = table.y - minY + padding;
 
@@ -1272,10 +1291,37 @@ document.getElementById('btn-export-png').addEventListener('click', () => {
   });
 
   const link = document.createElement('a');
-  link.download = `erd_diagram_${new Date().toISOString().slice(0, 10)}.png`;
-  link.href = tempCanvas.toDataURL('image/png');
+  const date = new Date().toISOString().slice(0, 10);
+  if (format === 'pdf') {
+    const jpeg = atob(tempCanvas.toDataURL('image/jpeg', 0.92).split(',')[1]);
+    const bytes = Uint8Array.from(jpeg, c => c.charCodeAt(0));
+    const scale = Math.min(1, 14400 / Math.max(totalW, totalH));
+    const w = (totalW * scale).toFixed(2), h = (totalH * scale).toFixed(2);
+    const encoder = new TextEncoder();
+    const parts = [], offsets = [0]; let size = 0;
+    const add = data => { const b = typeof data === 'string' ? encoder.encode(data) : data; parts.push(b); size += b.length; };
+    const object = (id, body) => { offsets[id] = size; add(id + ' 0 obj\n'); add(body); add('\nendobj\n'); };
+    add('%PDF-1.4\n');
+    object(1, '<< /Type /Catalog /Pages 2 0 R >>');
+    object(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+    object(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + w + ' ' + h + '] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>');
+    offsets[4] = size; add('4 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + totalW + ' /Height ' + totalH + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + bytes.length + ' >>\nstream\n'); add(bytes); add('\nendstream\nendobj\n');
+    const stream = 'q ' + w + ' 0 0 ' + h + ' 0 0 cm /Im0 Do Q';
+    object(5, '<< /Length ' + stream.length + ' >>\nstream\n' + stream + '\nendstream');
+    const xref = size; add('xref\n0 6\n0000000000 65535 f \n');
+    for (let i = 1; i <= 5; i++) add(String(offsets[i]).padStart(10, '0') + ' 00000 n \n');
+    add('trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF');
+    link.href = URL.createObjectURL(new Blob(parts, { type: 'application/pdf' }));
+    link.download = `erd_diagram_${date}.pdf`;
+  } else {
+    link.download = `erd_diagram_${date}.png`;
+    link.href = tempCanvas.toDataURL('image/png');
+  }
   link.click();
-});
+  if (format === 'pdf') setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+document.getElementById('btn-export-png').addEventListener('click', () => exportDiagram('png'));
+document.getElementById('btn-export-pdf').addEventListener('click', () => exportDiagram('pdf'));
 
 /* ========================================================================== 
    8. EDITOR SQL Y EVENTOS DE UI
@@ -1299,7 +1345,7 @@ function onSqlDraftChanged() {
   setSqlEditorStatus(hasPendingChanges ? 'Cambios pendientes' : 'Diagrama actualizado', hasPendingChanges);
   clearTimeout(sqlDraftSaveTimer);
   sqlDraftSaveTimer = setTimeout(() => {
-    if (state.tables.size) saveToLocalStorage();
+    saveToLocalStorage();
   }, 300);
 }
 
@@ -1426,10 +1472,17 @@ document.getElementById('btn-process-sql').addEventListener('click', () => {
 
   result.tables.forEach((table) => {
     const previousTable = state.tables.get(table.id);
+    if (previousTable) { table.x = previousTable.x; table.y = previousTable.y; table.color = previousTable.color; }
     table.width = previousTable?.width || TABLE_SIZE.defaultWidth;
     if (Number.isFinite(previousTable?.height)) table.height = previousTable.height;
   });
 
+  const linkKey = link => JSON.stringify([link.fromTable, link.fromCol, link.toTable, link.toCol]);
+  const oldLinks = new Map(state.links.map(link => [linkKey(link), link]));
+  result.links.forEach(link => {
+    const old = oldLinks.get(linkKey(link));
+    if (old) Object.assign(link, { color: old.color, width: old.width, style: old.style, cardinality: old.cardinality, points: old.points });
+  });
   state.tables = result.tables;
   state.links = result.links;
   state.selectedTable = null;

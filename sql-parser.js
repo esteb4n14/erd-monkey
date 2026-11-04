@@ -12,7 +12,11 @@
   function tokenize(sql) {
     const tokens = [];
     let i = 0;
+    let start = 0;
+    const pushToken = tokens.push.bind(tokens);
+    tokens.push = token => { token.start = start; token.end = i === start ? start + token.value.length : i; return pushToken(token); };
     while (i < sql.length) {
+      start = i;
       const ch = sql[i];
       if (/\s/.test(ch)) { i++; continue; }
       if (ch === '-' && sql[i + 1] === '-') {
@@ -264,6 +268,16 @@
       if (isWord(tokens[i], 'ADD')) {
         i++;
         if (isWord(tokens[i], 'CONSTRAINT')) i += 2;
+        if ((isWord(tokens[i], 'PRIMARY') && isWord(tokens[i + 1], 'KEY')) || isWord(tokens[i], 'UNIQUE')) {
+          const primary = isWord(tokens[i], 'PRIMARY');
+          const cols = readIdentifierList(tokens, i + (primary ? 2 : 1));
+          if (cols && table) {
+            if (primary) table.primaryKey = cols.values;
+            table.uniqueConstraints.push(cols.values);
+            i = cols.next;
+            continue;
+          }
+        }
         if (isWord(tokens[i], 'FOREIGN') && isWord(tokens[i + 1], 'KEY')) {
           const from = readIdentifierList(tokens, i + 2);
           if (from && isWord(tokens[from.next], 'REFERENCES')) {
@@ -318,7 +332,7 @@
         const targetColumns = fk.targetColumns || target.primaryKey;
         if (!targetColumns || !targetColumns.length) { diagnostics.push(`No se pudo inferir la clave referenciada por ${table.name}.`); return; }
         if (fk.columns.length !== targetColumns.length) { diagnostics.push(`La FK de ${table.name} tiene distinto número de columnas que ${target.name}.`); return; }
-        const oneToOne = table.uniqueConstraints.some(keys => sameColumnSet(keys, fk.columns));
+        const oneToOne = table.uniqueConstraints.some(keys => keys.length > 0 && keys.every(key => fk.columns.includes(key)));
         fk.columns.forEach((fromCol, index) => {
           const column = table.columns.find(item => item.name === fromCol);
           const targetColumn = target.columns.find(item => item.name === targetColumns[index]);
@@ -331,5 +345,38 @@
     return { tables, links, diagnostics };
   }
 
-  root.SqlParser = Object.freeze({ parse });
+  function editColumn(sql, tableId, columnName, newName, newType) {
+    if (!newName || !newName.trim() || !newType || !newType.trim()) throw new Error('El nombre y el tipo son obligatorios.');
+    const tokens = tokenize(sql);
+    let definition = null;
+    for (let i = 0; i < tokens.length; i++) {
+      if (!isWord(tokens[i], 'CREATE')) continue;
+      let j = i + 1;
+      while (['GLOBAL', 'LOCAL', 'TEMP', 'TEMPORARY', 'UNLOGGED'].some(k => isWord(tokens[j], k))) j++;
+      if (!isWord(tokens[j++], 'TABLE')) continue;
+      if (isWord(tokens[j], 'IF') && isWord(tokens[j + 1], 'NOT') && isWord(tokens[j + 2], 'EXISTS')) j += 3;
+      const name = readQualifiedName(tokens, j);
+      if (!name || name.key !== tableId || !tokens[name.next] || tokens[name.next].value !== '(') continue;
+      const end = matchingParen(tokens, name.next);
+      if (end < 0) break;
+      definition = splitTopLevel(tokens.slice(name.next + 1, end)).find(part => part[0] && part[0].type === 'identifier' && part[0].value === columnName);
+      break;
+    }
+    if (!definition || definition.length < 2) throw new Error('No se encontró una definición editable para este campo.');
+    const rest = definition.slice(1);
+    let typeEnd = rest.findIndex(t => t.type === 'identifier' && !t.quoted && CONSTRAINT_WORDS.has(t.value.toUpperCase()));
+    if (typeEnd < 0) typeEnd = rest.length;
+    if (!typeEnd) throw new Error('No se pudo identificar el tipo del campo.');
+    const typeTokens = tokenize(newType);
+    if (!typeTokens.length || typeTokens.some(t => t.type === 'string' || (t.type === 'symbol' && !['(', ')', '[', ']', ',', '.'].includes(t.value))) || typeTokens.some(t => t.type === 'identifier' && !t.quoted && CONSTRAINT_WORDS.has(t.value.toUpperCase()))) throw new Error('Introduce solamente un tipo SQL válido.');
+    if (newName !== columnName && tokens.some(t => t.type === 'identifier' && t.value === columnName && t !== definition[0])) throw new Error('El nombre aparece en otras partes del SQL. Renómbralo desde el editor SQL para revisar sus referencias.');
+    const escapedName = '"' + newName.replace(/"/g, '""') + '"';
+    const result = sql.slice(0, definition[0].start) + escapedName + ' ' + newType.trim() + sql.slice(rest[typeEnd - 1].end);
+    const parsed = parse(result);
+    const table = parsed.tables.get(tableId);
+    if (!table || !table.columns.some(c => c.name === newName) || table.columns.filter(c => c.name === newName).length !== 1) throw new Error('El cambio produciría una columna duplicada o inválida.');
+    return result;
+  }
+
+  root.SqlParser = Object.freeze({ parse, editColumn });
 })(window);

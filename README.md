@@ -41,11 +41,15 @@ Modelador visual interactivo de diagramas Entidad-Relación (ERD) diseñado espe
 8. **Guardar y Exportar**:
    - **Guardar / Cargar**: Exporta e importa tu diagrama en archivo `.json` conservando posiciones, tamaños y colores manuales.
    - **Autoguardado**: Guarda automáticamente en tu navegador para que nunca pierdas tu trabajo si cierras la pestaña.
-   - **Exportar PNG**: Descarga tu diagrama en alta calidad con un solo clic.
+   - **Exportar PNG o PDF**: Descarga el diagrama como imagen o PDF de una página.
+
+Para editar un campo, haz doble clic en su fila e introduce el nombre y el tipo. El SQL se actualiza junto con el diagrama. Aplica primero los cambios pendientes del editor. Si el nombre aparece en otra parte del SQL, cámbialo desde el editor para revisar sus referencias y restricciones.
 
 ## Cobertura del importador SQL
 
-El importador está enfocado en DDL de PostgreSQL. Reconoce tablas con esquema, identificadores entrecomillados, claves primarias y únicas, referencias inline o declaradas como restricciones, y claves foráneas compuestas. Las referencias sin lista explícita de columnas se resuelven usando la clave primaria de la tabla destino.
+El importador está enfocado en DDL de PostgreSQL. Reconoce tablas con esquema, identificadores entrecomillados, claves primarias y únicas, referencias inline o declaradas como restricciones, y claves foráneas compuestas. Reconoce también claves primarias, únicas y foráneas agregadas mediante `ALTER TABLE ... ADD`. Las referencias sin lista explícita de columnas se resuelven usando la clave primaria de la tabla destino. Es un importador parcial, no un validador completo de PostgreSQL.
+
+Para ejecutar las pruebas del importador con Node.js: `node tests/parser.test.js`.
 
 Las definiciones que no se puedan interpretar y las referencias a tablas o columnas que falten se informan como advertencias al generar el diagrama. El importador no ejecuta el SQL ni conecta con una base de datos.
 
