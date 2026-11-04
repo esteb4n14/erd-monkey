@@ -1,5 +1,7 @@
 # ⚡ ERD Monkey
 
+**Español** | [English](README.en.md)
+
 Modelador visual interactivo de diagramas Entidad-Relación (ERD) diseñado específicamente para scripts SQL de **PostgreSQL**.
 
 ---
@@ -10,19 +12,19 @@ Modelador visual interactivo de diagramas Entidad-Relación (ERD) diseñado espe
 
 Descarga o clona este repositorio y abre **`index.html`** con doble clic en Chrome, Edge, Firefox o Brave. No necesitas instalar dependencias ni conectarte a una base de datos. Al iniciar verás un esquema de ejemplo.
 
-<!-- Captura pendiente: ![Vista general de ERD Monkey](docs/capturas/01-vista-general.png) -->
+![Vista general de ERD Monkey](docs/capturas/01-vista-general.png)
 
 ### 2. Cargar y aplicar SQL
 
 En el panel **Editor SQL**, escribe o pega tu código, pulsa **Abrir .sql** para cargar un archivo o usa **Ejemplo**. Pulsa **Actualizar diagrama** o `Ctrl + Enter` para generar las tablas y relaciones. Si aparecen advertencias, revisa las definiciones indicadas. Para descargar el SQL del editor, pulsa **Descargar .sql** o `Ctrl + S`.
 
-<!-- Captura pendiente: ![Editor SQL y diagrama generado](docs/capturas/02-editor-sql.png) -->
+![Editor SQL y diagrama generado](docs/capturas/02-editor-sql.png)
 
 ### 3. Editar campos
 
 Haz doble clic en un campo, o selecciónalo con el teclado y pulsa `Enter`. En la ventana **Editar campo**, cambia el nombre o el tipo y pulsa **Guardar cambios**. El SQL y el diagrama se actualizan. Primero aplica cualquier cambio pendiente del editor; si un nombre aparece en otra parte del SQL, modifícalo desde el editor para revisar sus referencias.
 
-<!-- Captura pendiente: ![Ventana para editar un campo](docs/capturas/03-editar-campo.png) -->
+![Ventana para editar un campo](docs/capturas/03-editar-campo.png)
 
 ### 4. Organizar el diagrama
 
@@ -30,34 +32,13 @@ Arrastra las cabeceras para mover las tablas y su esquina inferior derecha para 
 
 Haz clic en una línea para cambiar su color, grosor, estilo o cardinalidad. Arrastra el punto circular de la línea para ajustar su recorrido; con doble clic puedes restablecerlo.
 
-<!-- Captura pendiente: ![Opciones de una relación](docs/capturas/04-relacion.png) -->
+![Opciones de una relación](docs/capturas/04-relacion.png)
 
 ### 5. Guardar y exportar
 
 Pulsa **Guardar** para descargar el proyecto como JSON y **Cargar** para recuperarlo posteriormente. El navegador también intenta guardar el trabajo automáticamente; conserva una copia JSON para respaldarlo. Usa **Exportar PNG** o **Exportar PDF** para descargar el diagrama.
 
-<!-- Captura pendiente: ![Controles para guardar y exportar](docs/capturas/05-guardar-exportar.png) -->
-
-## Capturas de pantalla
-
-Las capturas son opcionales y todavía deben añadirse al repositorio. Para incluirlas:
-
-1. Crea la carpeta `docs/capturas` dentro del proyecto.
-2. Abre la aplicación, prepara cada vista de la tabla y usa **Windows + Shift + S** para seleccionar el área. Abre la notificación de Recortes y guarda cada imagen en formato PNG con el nombre indicado.
-3. En este README, busca la línea `<!-- Captura pendiente: ... -->` correspondiente y quita `<!-- Captura pendiente: ` del inicio y ` -->` del final, dejando solamente el código `![descripción](ruta)`.
-4. Comprueba la vista previa del README y sube las imágenes y el README actualizado a GitHub.
-
-| Archivo en `docs/capturas/` | Qué debe mostrar |
-| --- | --- |
-| `01-vista-general.png` | Ventana completa, barra superior, editor SQL y varias tablas conectadas. |
-| `02-editor-sql.png` | Código SQL legible en el panel y el diagrama generado a su lado. |
-| `03-editar-campo.png` | Ventana **Editar campo** abierta, con nombre y tipo visibles. |
-| `04-relacion.png` | Diagrama con una línea seleccionada y sus opciones de estilo visibles. |
-| `05-guardar-exportar.png` | Barra superior con los botones **Guardar**, **Cargar**, **Exportar PNG** y **Exportar PDF**. |
-
-Usa datos de ejemplo y evita incluir información privada. Si prefieres subir las capturas desde GitHub, abre el repositorio, elige **Add file → Upload files**, arrastra la carpeta o los archivos y confirma el commit. Después edita el README en GitHub para activar las imágenes como se indica arriba.
-
----
+![Controles para guardar y exportar](docs/capturas/05-guardar-exportar.png)
 
 ## 🌟 Características Clave
 1. **Lector de PostgreSQL**:
@@ -90,7 +71,7 @@ Usa datos de ejemplo y evita incluir información privada. Si prefieres subir la
    - Botón **"Auto Orden"** si deseas una distribución automática inicial.
 8. **Guardar y Exportar**:
    - **Guardar / Cargar**: Exporta e importa tu diagrama en archivo `.json` conservando posiciones, tamaños y colores manuales.
-   - **Autoguardado**: Guarda automáticamente en tu navegador para que nunca pierdas tu trabajo si cierras la pestaña.
+   - **Autoguardado**: Intenta guardar automáticamente el trabajo en tu navegador; conserva una copia JSON como respaldo.
    - **Exportar PNG o PDF**: Descarga el diagrama como imagen o PDF de una página.
 
 Para editar un campo, haz doble clic en su fila o selecciónala con el teclado y pulsa Enter. Introduce el nombre y el tipo en la ventana de edición. El SQL se actualiza junto con el diagrama. Aplica primero los cambios pendientes del editor. Si el nombre aparece en otra parte del SQL, cámbialo desde el editor para revisar sus referencias y restricciones.
