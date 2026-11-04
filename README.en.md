@@ -1,4 +1,4 @@
-# ⚡ ERD Monkey
+# ERD Monkey
 
 [Español](README.md) | **English**
 

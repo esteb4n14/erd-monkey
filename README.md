@@ -1,4 +1,4 @@
-# ⚡ ERD Monkey
+# ERD Monkey
 
 **Español** | [English](README.en.md)
 
@@ -6,7 +6,7 @@ Modelador visual interactivo de diagramas Entidad-Relación (ERD) diseñado espe
 
 ---
 
-## 🚀 Guía de uso
+## Guía de uso
 
 ### 1. Abrir la aplicación
 
@@ -40,7 +40,7 @@ Pulsa **Guardar** para descargar el proyecto como JSON y **Cargar** para recuper
 
 ![Controles para guardar y exportar](docs/capturas/05-guardar-exportar.png)
 
-## 🌟 Características Clave
+## Características Clave
 1. **Lector de PostgreSQL**:
    - Interpreta `CREATE TABLE`, tipos de datos (`SERIAL`, `INT`, `VARCHAR`, `NUMERIC`, `UUID`, etc.).
    - Detecta `PRIMARY KEY` (inline o por restricción de tabla).
