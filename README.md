@@ -4,8 +4,58 @@ Modelador visual interactivo de diagramas Entidad-Relación (ERD) diseñado espe
 
 ---
 
-## 🚀 Cómo Usar
-- Haz doble clic en el archivo **`index.html`** en tu navegador (Chrome, Edge, Firefox, Brave).
+## 🚀 Guía de uso
+
+### 1. Abrir la aplicación
+
+Descarga o clona este repositorio y abre **`index.html`** con doble clic en Chrome, Edge, Firefox o Brave. No necesitas instalar dependencias ni conectarte a una base de datos. Al iniciar verás un esquema de ejemplo.
+
+<!-- Captura pendiente: ![Vista general de ERD Monkey](docs/capturas/01-vista-general.png) -->
+
+### 2. Cargar y aplicar SQL
+
+En el panel **Editor SQL**, escribe o pega tu código, pulsa **Abrir .sql** para cargar un archivo o usa **Ejemplo**. Pulsa **Actualizar diagrama** o `Ctrl + Enter` para generar las tablas y relaciones. Si aparecen advertencias, revisa las definiciones indicadas. Para descargar el SQL del editor, pulsa **Descargar .sql** o `Ctrl + S`.
+
+<!-- Captura pendiente: ![Editor SQL y diagrama generado](docs/capturas/02-editor-sql.png) -->
+
+### 3. Editar campos
+
+Haz doble clic en un campo, o selecciónalo con el teclado y pulsa `Enter`. En la ventana **Editar campo**, cambia el nombre o el tipo y pulsa **Guardar cambios**. El SQL y el diagrama se actualizan. Primero aplica cualquier cambio pendiente del editor; si un nombre aparece en otra parte del SQL, modifícalo desde el editor para revisar sus referencias.
+
+<!-- Captura pendiente: ![Ventana para editar un campo](docs/capturas/03-editar-campo.png) -->
+
+### 4. Organizar el diagrama
+
+Arrastra las cabeceras para mover las tablas y su esquina inferior derecha para cambiar el tamaño. Usa el selector de color de cada cabecera para distinguir módulos. Arrastra el fondo para desplazar el lienzo y utiliza la rueda del ratón o los botones de la barra para acercar o alejar. **Auto Orden** reorganiza las tablas.
+
+Haz clic en una línea para cambiar su color, grosor, estilo o cardinalidad. Arrastra el punto circular de la línea para ajustar su recorrido; con doble clic puedes restablecerlo.
+
+<!-- Captura pendiente: ![Opciones de una relación](docs/capturas/04-relacion.png) -->
+
+### 5. Guardar y exportar
+
+Pulsa **Guardar** para descargar el proyecto como JSON y **Cargar** para recuperarlo posteriormente. El navegador también intenta guardar el trabajo automáticamente; conserva una copia JSON para respaldarlo. Usa **Exportar PNG** o **Exportar PDF** para descargar el diagrama.
+
+<!-- Captura pendiente: ![Controles para guardar y exportar](docs/capturas/05-guardar-exportar.png) -->
+
+## Capturas de pantalla
+
+Las capturas son opcionales y todavía deben añadirse al repositorio. Para incluirlas:
+
+1. Crea la carpeta `docs/capturas` dentro del proyecto.
+2. Abre la aplicación, prepara cada vista de la tabla y usa **Windows + Shift + S** para seleccionar el área. Abre la notificación de Recortes y guarda cada imagen en formato PNG con el nombre indicado.
+3. En este README, busca la línea `<!-- Captura pendiente: ... -->` correspondiente y quita `<!-- Captura pendiente: ` del inicio y ` -->` del final, dejando solamente el código `![descripción](ruta)`.
+4. Comprueba la vista previa del README y sube las imágenes y el README actualizado a GitHub.
+
+| Archivo en `docs/capturas/` | Qué debe mostrar |
+| --- | --- |
+| `01-vista-general.png` | Ventana completa, barra superior, editor SQL y varias tablas conectadas. |
+| `02-editor-sql.png` | Código SQL legible en el panel y el diagrama generado a su lado. |
+| `03-editar-campo.png` | Ventana **Editar campo** abierta, con nombre y tipo visibles. |
+| `04-relacion.png` | Diagrama con una línea seleccionada y sus opciones de estilo visibles. |
+| `05-guardar-exportar.png` | Barra superior con los botones **Guardar**, **Cargar**, **Exportar PNG** y **Exportar PDF**. |
+
+Usa datos de ejemplo y evita incluir información privada. Si prefieres subir las capturas desde GitHub, abre el repositorio, elige **Add file → Upload files**, arrastra la carpeta o los archivos y confirma el commit. Después edita el README en GitHub para activar las imágenes como se indica arriba.
 
 ---
 
