@@ -111,6 +111,27 @@
     </main>
   </div>
 
+  <dialog id="column-dialog" class="column-dialog" aria-labelledby="column-dialog-title" aria-describedby="column-dialog-description">
+    <form id="column-form">
+      <div class="column-dialog-header">
+        <div>
+          <h2 id="column-dialog-title">Editar campo</h2>
+          <p id="column-dialog-description"></p>
+        </div>
+        <button id="column-dialog-close" class="btn-close-mini" type="button" aria-label="Cerrar">&times;</button>
+      </div>
+      <label class="column-field" for="column-name-input">Nombre del campo</label>
+      <input id="column-name-input" class="column-input" required autocomplete="off">
+      <label class="column-field" for="column-type-input">Tipo SQL</label>
+      <input id="column-type-input" class="column-input" required autocomplete="off">
+      <p id="column-dialog-error" class="column-dialog-error" role="alert" hidden></p>
+      <div class="column-dialog-actions">
+        <button id="column-dialog-cancel" class="btn btn-secondary" type="button">Cancelar</button>
+        <button class="btn btn-primary" type="submit">Guardar cambios</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- POPUP FLOTANTE PARA EDITAR COLOR/ESTILO DE RELACIÓN SELECCIONADA -->
   <div id="link-popover" class="link-popover" style="display: none;">
     <div class="popover-header">

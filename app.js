@@ -29,6 +29,7 @@ let sqlDraftSaveTimer = null;
 let sqlFileName = 'schema.sql';
 let sqlSidebarWidth = 380;
 let tableResizeSession = null;
+let columnEditSession = null;
 
 const TABLE_SIZE = Object.freeze({
   defaultWidth: 250,
@@ -254,19 +255,13 @@ function renderTables() {
       const colType = document.createElement('span');
       colType.className = 'col-type';
       colType.textContent = col.type;
-      colEl.title = 'Doble clic para editar nombre y tipo';
-      colEl.addEventListener('dblclick', event => {
-        event.stopPropagation();
-        if (dom.sqlInput.value !== lastAppliedSql) { alert('Aplica primero los cambios pendientes del SQL.'); return; }
-        const name = prompt('Nombre del campo:', col.name);
-        if (name === null) return;
-        const type = prompt('Tipo SQL del campo:', col.type);
-        if (type === null) return;
-        try {
-          dom.sqlInput.value = SqlParser.editColumn(dom.sqlInput.value, table.id, col.name, name, type);
-          updateSqlHighlight();
-          document.getElementById('btn-process-sql').click();
-        } catch (err) { alert(err.message); }
+      colEl.title = 'Doble clic o Enter para editar nombre y tipo';
+      colEl.tabIndex = 0;
+      colEl.setAttribute('role', 'button');
+      colEl.setAttribute('aria-label', `Editar campo ${col.name} de ${table.name}`);
+      colEl.addEventListener('dblclick', event => { event.stopPropagation(); openColumnDialog(table, col); });
+      colEl.addEventListener('keydown', event => {
+        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openColumnDialog(table, col); }
       });
       colEl.append(colLeft, colType);
       bodyEl.appendChild(colEl);
@@ -278,6 +273,43 @@ function renderTables() {
     tableEl.appendChild(createTableResizeHandle(table, tableEl));
   });
 }
+
+const columnDialog = document.getElementById('column-dialog');
+const columnNameInput = document.getElementById('column-name-input');
+const columnTypeInput = document.getElementById('column-type-input');
+const columnDialogError = document.getElementById('column-dialog-error');
+
+function openColumnDialog(table, column) {
+  columnEditSession = { tableId: table.id, columnName: column.name };
+  document.getElementById('column-dialog-description').textContent = `Tabla: ${table.name}`;
+  columnNameInput.value = column.name;
+  columnTypeInput.value = column.type;
+  const pending = dom.sqlInput.value !== lastAppliedSql;
+  columnDialogError.textContent = pending ? 'Aplica primero los cambios pendientes del SQL.' : '';
+  columnDialogError.hidden = !pending;
+  columnDialog.showModal();
+  columnNameInput.focus();
+  columnNameInput.select();
+}
+
+document.getElementById('column-dialog-close').addEventListener('click', () => columnDialog.close());
+document.getElementById('column-dialog-cancel').addEventListener('click', () => columnDialog.close());
+document.getElementById('column-form').addEventListener('submit', event => {
+  event.preventDefault();
+  if (!columnEditSession) return;
+  try {
+    if (dom.sqlInput.value !== lastAppliedSql) throw new Error('Aplica primero los cambios pendientes del SQL.');
+    const sql = SqlParser.editColumn(dom.sqlInput.value, columnEditSession.tableId, columnEditSession.columnName, columnNameInput.value, columnTypeInput.value);
+    dom.sqlInput.value = sql;
+    updateSqlHighlight();
+    columnDialog.close();
+    document.getElementById('btn-process-sql').click();
+  } catch (err) {
+    columnDialogError.textContent = err.message;
+    columnDialogError.hidden = false;
+  }
+});
+columnDialog.addEventListener('close', () => { columnEditSession = null; });
 
 function createTableResizeHandle(table, tableEl) {
   const handle = document.createElement('button');

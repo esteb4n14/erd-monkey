@@ -43,7 +43,7 @@ Modelador visual interactivo de diagramas Entidad-Relación (ERD) diseñado espe
    - **Autoguardado**: Guarda automáticamente en tu navegador para que nunca pierdas tu trabajo si cierras la pestaña.
    - **Exportar PNG o PDF**: Descarga el diagrama como imagen o PDF de una página.
 
-Para editar un campo, haz doble clic en su fila e introduce el nombre y el tipo. El SQL se actualiza junto con el diagrama. Aplica primero los cambios pendientes del editor. Si el nombre aparece en otra parte del SQL, cámbialo desde el editor para revisar sus referencias y restricciones.
+Para editar un campo, haz doble clic en su fila o selecciónala con el teclado y pulsa Enter. Introduce el nombre y el tipo en la ventana de edición. El SQL se actualiza junto con el diagrama. Aplica primero los cambios pendientes del editor. Si el nombre aparece en otra parte del SQL, cámbialo desde el editor para revisar sus referencias y restricciones.
 
 ## Cobertura del importador SQL
 
