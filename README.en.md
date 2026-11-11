@@ -66,3 +66,7 @@ node tests/parser.test.js
 - `sql-highlighter.js`: dependency-free SQL syntax highlighting.
 - `app.js`: interface, rendering, canvas interaction, and project persistence.
 - `index.html`: loads the parser and highlighter before the application. Classic scripts keep direct opening of `index.html` working.
+
+## License
+
+This project is distributed under the [MIT License](LICENSE).

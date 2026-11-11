@@ -92,3 +92,7 @@ El editor SQL está integrado en el panel lateral, con resaltado de palabras cla
 - `sql-highlighter.js`: resaltado de sintaxis seguro para el editor SQL, sin dependencias externas.
 - `app.js`: interfaz, renderizado, interacción del lienzo y persistencia del proyecto.
 - `index.html` carga el parser y el resaltador antes de la aplicación. Se mantiene el uso de scripts clásicos para que abrir `index.html` directamente en el navegador siga funcionando.
+
+## Licencia
+
+Este proyecto se distribuye bajo la [licencia MIT](LICENSE).
