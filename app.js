@@ -30,6 +30,7 @@ let sqlFileName = 'schema.sql';
 let sqlSidebarWidth = 380;
 let tableResizeSession = null;
 let columnEditSession = null;
+let currentTheme = 'dark';
 
 const TABLE_SIZE = Object.freeze({
   defaultWidth: 250,
@@ -79,6 +80,23 @@ function setSqlEditorStatus(message, pending = false) {
   dom.sqlEditorStatus.textContent = message;
   dom.sqlEditorStatus.classList.toggle('pending', pending);
 }
+
+function setTheme(theme, persist = true) {
+  currentTheme = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = currentTheme;
+  const button = document.getElementById('btn-toggle-theme');
+  button.textContent = currentTheme === 'dark' ? '☀️ Tema claro' : '🌙 Tema oscuro';
+  button.title = currentTheme === 'dark' ? 'Cambiar al tema claro' : 'Cambiar al tema oscuro';
+  button.setAttribute('aria-pressed', String(currentTheme === 'light'));
+  if (persist) {
+    try { localStorage.setItem('erd_monkey_theme', currentTheme); }
+    catch (err) { console.warn('No se pudo guardar el tema:', err); }
+  }
+}
+
+document.getElementById('btn-toggle-theme').addEventListener('click', () => {
+  setTheme(currentTheme === 'dark' ? 'light' : 'dark');
+});
 
 function setSqlSidebarOpen(isOpen) {
   dom.workspace.classList.toggle('sidebar-collapsed', !isOpen);
@@ -1553,6 +1571,8 @@ window.addEventListener('click', (e) => {
    ========================================================================== */
 
 function init() {
+  try { setTheme(localStorage.getItem('erd_monkey_theme') || 'dark', false); }
+  catch (err) { setTheme('dark', false); }
   renderSqlSidebarWidth();
   setSqlSidebarOpen(true);
   const loaded = loadFromLocalStorage();
