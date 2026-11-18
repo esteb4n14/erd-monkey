@@ -839,10 +839,15 @@ html[data-theme="light"] .sql-token-function { color: #a16207; }
 .select-sm {
   background: var(--input-bg);
   border: 1px solid var(--border-color);
-  color: #fff;
+  color: var(--text-main);
   padding: 4px 6px;
   border-radius: 4px;
   font-size: 11px;
+}
+
+.select-sm option {
+  background-color: var(--bg-card);
+  color: var(--text-main);
 }
 
 /* STATUSBAR */
