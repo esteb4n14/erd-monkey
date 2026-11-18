@@ -78,10 +78,15 @@
         <button id="btn-hide-sql-sidebar" class="btn btn-icon" type="button" title="Ocultar editor SQL" aria-label="Ocultar editor SQL">‹</button>
       </div>
       <div class="sql-sidebar-tools">
+        <label for="sql-dialect">Motor SQL</label>
+        <select id="sql-dialect" class="select-sm" aria-label="Motor SQL">
+          <option value="auto">Automático</option><option value="postgresql">PostgreSQL</option><option value="mysql">MySQL</option><option value="mariadb">MariaDB</option><option value="sqlite">SQLite</option><option value="sqlserver">Microsoft SQL Server</option><option value="oracle">Oracle</option>
+        </select>
         <button id="btn-open-sql-file" class="btn btn-secondary" type="button">Abrir .sql</button>
         <button id="btn-load-sample-sql" class="btn btn-secondary" type="button">Ejemplo</button>
         <input type="file" id="file-import-sql" accept=".sql,.txt" hidden>
       </div>
+      <span id="sql-dialect-status" class="sql-editor-status" aria-live="polite">Motor: PostgreSQL</span>
       <div id="sql-editor" class="sql-editor">
         <pre id="sql-highlight" class="sql-highlight" aria-hidden="true"><code id="sql-highlight-code"></code></pre>
         <textarea id="sql-input" spellcheck="false" wrap="off" autocapitalize="off" autocomplete="off" aria-label="Contenido del archivo SQL" placeholder="CREATE TABLE usuarios (&#10;    id SERIAL PRIMARY KEY,&#10;    nombre VARCHAR(100)&#10;);"></textarea>

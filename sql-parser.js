@@ -1,5 +1,5 @@
 /*
- * Parser pequeño para DDL PostgreSQL.
+ * Parser ligero para DDL relacional común.
  * Mantiene el análisis separado del DOM y conserva los identificadores
  * entrecomillados tal como PostgreSQL los interpreta.
  */
@@ -57,12 +57,13 @@
         tokens.push({ type: 'string', value });
         continue;
       }
-      if (ch === '"') {
+      if (ch === '"' || ch === '`' || ch === '[') {
+        const close = ch === '[' ? ']' : ch;
         i++;
         let value = '';
         while (i < sql.length) {
-          if (sql[i] === '"' && sql[i + 1] === '"') { value += '"'; i += 2; }
-          else if (sql[i] === '"') { i++; break; }
+          if (sql[i] === close && sql[i + 1] === close) { value += close; i += 2; }
+          else if (sql[i] === close) { i++; break; }
           else value += sql[i++];
         }
         tokens.push({ type: 'identifier', value, quoted: true });
@@ -187,10 +188,16 @@
     const rest = definition.slice(column.next);
     let typeEnd = rest.findIndex(token => token.type === 'identifier' && !token.quoted && CONSTRAINT_WORDS.has(token.value.toUpperCase()));
     if (typeEnd < 0) typeEnd = rest.length;
+    const dialect = table.dialect || 'postgresql';
     const typeTokens = rest.slice(0, typeEnd);
     const type = formatTokens(typeTokens).trim() || 'UNKNOWN';
     const col = { name: column.value, type, isPk: false, isFk: false };
     table.columns.push(col);
+
+    if (dialect === 'sqlite' && /^integer$/i.test(type) && rest.some(token => isWord(token, 'PRIMARY')) && rest.some(token => isWord(token, 'KEY'))) {
+      table.primaryKey.push(col.name);
+      table.uniqueConstraints.push([col.name]);
+    }
 
     for (let j = typeEnd; j < rest.length; j++) {
       if (isWord(rest[j], 'PRIMARY') && isWord(rest[j + 1], 'KEY')) {
@@ -245,7 +252,8 @@
       color: TABLE_COLORS[tables.size % TABLE_COLORS.length],
       primaryKey: [],
       uniqueConstraints: [],
-      foreignKeys: []
+      foreignKeys: [],
+      dialect: 'postgresql'
     };
     splitTopLevel(tokens.slice(i + 1, close)).forEach(definition => {
       if (!parseConstraint(definition, table)) diagnostics.push(`No se pudo interpretar una definición de ${table.name}: ${formatTokens(definition)}`);
@@ -301,7 +309,9 @@
     return left.every((value, index) => value === right[index]);
   }
 
-  function parse(sqlText) {
+  function parse(sqlText, dialect = 'postgresql') {
+    const detection = detectDialect(sqlText);
+    if (dialect === 'auto') dialect = detection.dialect;
     const tokens = tokenize(String(sqlText || ''));
     const tables = new Map();
     const diagnostics = [];
@@ -342,7 +352,35 @@
         });
       });
     });
-    return { tables, links, diagnostics };
+    const supportedDialects = new Set(['postgresql', 'mysql', 'mariadb', 'sqlite', 'sqlserver', 'oracle']);
+    if (!supportedDialects.has(dialect)) diagnostics.push(`Motor SQL desconocido: ${dialect}. Se aplicó el análisis común.`);
+    // Count actual object declarations, not every keyword occurrence (for
+    // example CREATE INDEX ... INDEX name was previously counted twice).
+    const objectSql = String(sqlText || '').replace(/--[^\n]*/g, ' ').replace(/\/\*[\s\S]*?\*\//g, ' ');
+    const ignoredCounts = {
+      vistas: (objectSql.match(/\bCREATE\s+(?:OR\s+REPLACE\s+)?VIEW\b/gi) || []).length,
+      índices: (objectSql.match(/\bCREATE\s+(?:UNIQUE\s+|FULLTEXT\s+|SPATIAL\s+)?INDEX\b/gi) || []).length,
+      triggers: (objectSql.match(/\bCREATE\s+TRIGGER\b/gi) || []).length
+    };
+    const ignoredObjects = Object.entries(ignoredCounts).filter(([, count]) => count)
+      .map(([label, count]) => `Se omitieron ${count} ${label}; no se representan en el diagrama ER.`);
+    return { tables, links, diagnostics, dialect, detectedDialect: detection.dialect, confidence: detection.confidence,
+      ignoredObjects };
+  }
+
+  function detectDialect(sqlText) {
+    const sql = String(sqlText || '');
+    const scores = { postgresql: 0, mysql: 0, mariadb: 0, sqlite: 0, sqlserver: 0, oracle: 0 };
+    const evidence = (dialect, regex, weight = 2) => { if (regex.test(sql)) scores[dialect] += weight; };
+    evidence('sqlserver', /\[[\w ]+\]\s*\.|\bIDENTITY\s*\(|\bNVARCHAR\b|\bGO\s*$/im, 3);
+    evidence('mysql', /`[^`]+`|\bENGINE\s*=|\bAUTO_INCREMENT\b/i, 3);
+    evidence('mariadb', /\bENGINE\s*=\s*(?:InnoDB|Aria|ColumnStore)|\bAUTO_INCREMENT\b/i, 2);
+    evidence('sqlite', /\bAUTOINCREMENT\b|\bWITHOUT\s+ROWID\b|\bPRAGMA\s+/i, 3);
+    evidence('oracle', /\bVARCHAR2\b|\bNUMBER\s*\(|\bCREATE\s+SEQUENCE\b|\bSYSDATE\b/i, 3);
+    evidence('postgresql', /\bSERIAL\b|\bJSONB\b|\bBYTEA\b|\bCREATE\s+EXTENSION\b|\b::[\w]+/i, 3);
+    const ranked = Object.entries(scores).sort((a,b)=>b[1]-a[1]);
+    if (ranked[0][1] === 0) return { dialect:'postgresql', confidence:'low' };
+    return { dialect:ranked[0][0], confidence:ranked[0][1] >= 3 && ranked[0][1] > ranked[1][1] ? 'high' : 'medium' };
   }
 
   function editColumn(sql, tableId, columnName, newName, newType) {
@@ -378,5 +416,5 @@
     return result;
   }
 
-  root.SqlParser = Object.freeze({ parse, editColumn });
+  root.SqlParser = Object.freeze({ parse, editColumn, detectDialect });
 })(window);

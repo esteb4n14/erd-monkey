@@ -2,7 +2,7 @@
 
 **Español** | [English](README.en.md)
 
-Modelador visual interactivo de diagramas Entidad-Relación (ERD) diseñado específicamente para scripts SQL de **PostgreSQL**.
+Modelador visual interactivo de diagramas Entidad-Relación (ERD) para esquemas relacionales de **PostgreSQL, SQLite, MySQL, MariaDB, Microsoft SQL Server y Oracle**. El importador reconoce el DDL común de tablas, columnas, claves y relaciones; la cobertura varía según las características específicas de cada motor.
 
 ---
 
@@ -41,10 +41,10 @@ Pulsa **Guardar** para descargar el proyecto como JSON y **Cargar** para recuper
 ![Controles para guardar y exportar](docs/capturas/05-guardar-exportar.png)
 
 ## Características Clave
-1. **Lector de PostgreSQL**:
-   - Interpreta `CREATE TABLE`, tipos de datos (`SERIAL`, `INT`, `VARCHAR`, `NUMERIC`, `UUID`, etc.).
-   - Detecta `PRIMARY KEY` (inline o por restricción de tabla).
-   - Detecta `FOREIGN KEY / REFERENCES` (inline o por restricciones `ALTER TABLE / CONSTRAINT`).
+1. **Importador SQL para seis motores relacionales**:
+   - Incluye PostgreSQL, SQLite, MySQL, MariaDB, Microsoft SQL Server y Oracle.
+   - El selector **Automático** estima el dialecto mediante rasgos distintivos (por ejemplo, backticks, corchetes, `AUTO_INCREMENT`, `AUTOINCREMENT`, `IDENTITY`, `VARCHAR2` o `SERIAL`). Si el SQL es común a varios motores, selecciona PostgreSQL con confianza baja; el usuario puede elegir el motor manualmente.
+   - Interpreta la estructura común `CREATE TABLE`, tipos de datos, claves primarias y referencias. La gramática es parcial y aún no cubre todas las construcciones particulares de cada motor; las diferencias no reconocidas pueden generar advertencias o requerir seleccionar el dialecto manualmente.
 2. **Generación automática de tablas y relaciones**:
    - Dibuja tarjetas de tablas con columnas, tipos y etiquetas visuales (`PK`, `FK`).
    - Genera líneas curvas Bézier automáticas entre las columnas conectadas.
@@ -78,7 +78,11 @@ Para editar un campo, haz doble clic en su fila o selecciónala con el teclado y
 
 ## Cobertura del importador SQL
 
-El importador está enfocado en DDL de PostgreSQL. Reconoce tablas con esquema, identificadores entrecomillados, claves primarias y únicas, referencias inline o declaradas como restricciones, y claves foráneas compuestas. Reconoce también claves primarias, únicas y foráneas agregadas mediante `ALTER TABLE ... ADD`. Las referencias sin lista explícita de columnas se resuelven usando la clave primaria de la tabla destino. Es un importador parcial, no un validador completo de PostgreSQL.
+El selector ofrece PostgreSQL, SQLite, MySQL, MariaDB, Microsoft SQL Server y Oracle, además del modo **Automático**. La detección es heurística y se basa en rasgos distintivos del SQL; el modo automático no puede diferenciar con certeza scripts que usan solamente sintaxis compartida.
+
+El importador convierte las estructuras de tablas, columnas, claves primarias, restricciones únicas y referencias reconocidas a un modelo común para dibujar el ERD. Reconoce identificadores entre comillas dobles, backticks y corchetes, y la clave `INTEGER PRIMARY KEY` de SQLite. La cobertura es parcial: no es un parser completo específico de cada motor ni un validador SQL. Algunas variantes de `ALTER TABLE`, tipos u opciones de tabla pueden no interpretarse y se deben revisar las advertencias.
+
+Las vistas, índices y triggers se detectan como declaraciones no representadas en el ERD y se informan por separado. No se ejecuta SQL ni se conecta con bases de datos.
 
 Para ejecutar las pruebas del importador con Node.js: `node tests/parser.test.js`.
 
@@ -88,7 +92,7 @@ El editor SQL está integrado en el panel lateral, con resaltado de palabras cla
 
 ## Estructura del código
 
-- `sql-parser.js`: tokenización del SQL PostgreSQL y extracción de tablas, columnas, restricciones y relaciones.
+- `sql-parser.js`: tokenización de identificadores y extracción de estructuras relacionales comunes en DDL SQL.
 - `sql-highlighter.js`: resaltado de sintaxis seguro para el editor SQL, sin dependencias externas.
 - `app.js`: interfaz, renderizado, interacción del lienzo y persistencia del proyecto.
 - `index.html` carga el parser y el resaltador antes de la aplicación. Se mantiene el uso de scripts clásicos para que abrir `index.html` directamente en el navegador siga funcionando.

@@ -2,7 +2,7 @@
 
 [Español](README.md) | **English**
 
-An interactive entity–relationship diagram (ERD) editor for **PostgreSQL** SQL scripts. The application interface is currently in Spanish; the button labels below match the interface.
+An interactive entity–relationship diagram (ERD) editor for relational schemas in **PostgreSQL, SQLite, MySQL, MariaDB, Microsoft SQL Server, and Oracle**. The importer recognizes common table, column, key, and relationship DDL; coverage varies for engine-specific features. The application interface is currently in Spanish; the button labels below match the interface.
 
 ## User guide
 
@@ -40,7 +40,11 @@ Select **Guardar** to download a JSON project and **Cargar** to restore one. The
 
 ## Features
 
-- PostgreSQL DDL importer for tables, columns, primary keys, unique constraints, and foreign keys, including composite keys and constraints added with `ALTER TABLE`.
+- SQL importer for PostgreSQL, SQLite, MySQL, MariaDB, Microsoft SQL Server, and Oracle, with an **Automático** dialect option based on SQL syntax clues.
+- Automatic dialect detection looks for markers such as backticks, brackets, `AUTO_INCREMENT`, `AUTOINCREMENT`, `IDENTITY`, `VARCHAR2`, and `SERIAL`. Shared SQL syntax may be ambiguous; choose a dialect manually when needed.
+- Common DDL import into a shared ERD model: tables, columns, primary keys, unique constraints, references, and composite relationships. Quoted identifiers using double quotes, backticks, or SQL Server brackets are recognized, as is SQLite's `INTEGER PRIMARY KEY` form.
+- Dialect support is partial, not a complete parser or validator for every vendor's SQL. Some engine-specific `ALTER TABLE` forms, types, and table options may need manual review; the importer reports parse warnings.
+- Views, indexes, and triggers are detected and reported separately because they are not represented in the ERD. SQL is never executed and no database connection is made.
 - Table cards with PK and FK indicators and curved relationship lines.
 - Table colors, positions, and sizes; drag the resize handle or use the arrow keys while it is focused (`Shift` increases the step).
 - Custom relationship colors, line widths and styles, cardinality labels, and draggable control points. Use **+ Añadir punto vector** to add a point and **↺ Restablecer curva** to reset the curve.
@@ -50,9 +54,11 @@ Select **Guardar** to download a JSON project and **Cargar** to restore one. The
 
 ## SQL importer coverage
 
-The importer recognizes schema-qualified tables, quoted identifiers, primary and unique keys, inline references, table constraints, and composite foreign keys. It also recognizes primary, unique, and foreign keys added with `ALTER TABLE ... ADD`. References without an explicit column list use the target table's primary key.
+The dialect selector offers PostgreSQL, SQLite, MySQL, MariaDB, Microsoft SQL Server, and Oracle, plus **Automático**. Automatic detection is heuristic and uses dialect-specific syntax markers; it cannot confidently distinguish scripts that only use shared SQL syntax.
 
-Definitions that cannot be interpreted and references to missing tables or columns are reported as warnings. The importer is a partial PostgreSQL DDL parser, not a complete PostgreSQL validator; it does not execute SQL or connect to a database.
+The importer maps recognized table structures, columns, primary keys, unique constraints, and references into a shared model for ERD rendering. It recognizes double-quoted, backtick-quoted, and bracket-quoted identifiers, plus SQLite's `INTEGER PRIMARY KEY`. Coverage is partial: it is not a complete dialect-specific parser or SQL validator. Unsupported `ALTER TABLE` variants, types, or table options may not be interpreted; review parser warnings.
+
+Views, indexes, and triggers are detected and reported separately because they are not represented in the ERD. SQL is never executed and no database connection is made.
 
 Run the parser tests with Node.js:
 
@@ -62,7 +68,7 @@ node tests/parser.test.js
 
 ## Code structure
 
-- `sql-parser.js`: PostgreSQL SQL tokenization and extraction of tables, columns, constraints, and relationships.
+- `sql-parser.js`: SQL identifier tokenization and extraction of common relational DDL structures.
 - `sql-highlighter.js`: dependency-free SQL syntax highlighting.
 - `app.js`: interface, rendering, canvas interaction, and project persistence.
 - `index.html`: loads the parser and highlighter before the application. Classic scripts keep direct opening of `index.html` working.

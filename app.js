@@ -54,6 +54,7 @@ const dom = {
   tablesLayer: document.getElementById('tables-layer'),
   zoomLevel: document.getElementById('zoom-level'),
   sqlInput: document.getElementById('sql-input'),
+  sqlDialect: document.getElementById('sql-dialect'),
   linkPopover: document.getElementById('link-popover'),
   linkColorInput: document.getElementById('link-color-input'),
   linkWidthInput: document.getElementById('link-width-input'),
@@ -1391,6 +1392,11 @@ document.getElementById('btn-hide-sql-sidebar').addEventListener('click', () => 
 document.getElementById('btn-open-sql-file').addEventListener('click', () => dom.fileImportSql.click());
 
 function onSqlDraftChanged() {
+  const detected = SqlParser.detectDialect(dom.sqlInput.value);
+  if (dom.sqlDialect.value === 'auto') {
+    const label = dom.sqlDialect.options[dom.sqlDialect.selectedIndex].text;
+    document.getElementById('sql-dialect-status').textContent = `Detectado: ${detected.dialect} (${detected.confidence})`;
+  }
   const hasPendingChanges = dom.sqlInput.value !== lastAppliedSql;
   setSqlEditorStatus(hasPendingChanges ? 'Cambios pendientes' : 'Diagrama actualizado', hasPendingChanges);
   clearTimeout(sqlDraftSaveTimer);
@@ -1402,6 +1408,12 @@ function onSqlDraftChanged() {
 dom.sqlInput.addEventListener('input', onSqlDraftChanged);
 dom.sqlInput.addEventListener('input', updateSqlHighlight);
 dom.sqlInput.addEventListener('scroll', syncSqlHighlightScroll);
+dom.sqlDialect.addEventListener('change', () => {
+  const detection = SqlParser.detectDialect(dom.sqlInput.value);
+  document.getElementById('sql-dialect-status').textContent = dom.sqlDialect.value === 'auto'
+    ? `Detectado: ${detection.dialect} (${detection.confidence})`
+    : `Motor: ${dom.sqlDialect.options[dom.sqlDialect.selectedIndex].text}`;
+});
 dom.sqlInput.addEventListener('keydown', (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
     event.preventDefault();
@@ -1512,7 +1524,11 @@ document.getElementById('btn-process-sql').addEventListener('click', () => {
     return;
   }
 
-  const result = SqlParser.parse(sql);
+  const result = SqlParser.parse(sql, dom.sqlDialect.value);
+  const dialectText = dom.sqlDialect.value === 'auto'
+    ? `Detectado: ${result.dialect} (${result.confidence})`
+    : `Motor: ${dom.sqlDialect.options[dom.sqlDialect.selectedIndex].text}`;
+  document.getElementById('sql-dialect-status').textContent = dialectText;
   if (result.tables.size === 0) {
     const details = result.diagnostics.length ? `\n\n${result.diagnostics.join('\n')}` : '';
     alert(`No se detectaron sentencias CREATE TABLE válidas en el SQL.${details}`);
@@ -1542,8 +1558,8 @@ document.getElementById('btn-process-sql').addEventListener('click', () => {
   setSqlEditorStatus(result.diagnostics.length ? 'Aplicado con advertencias' : 'Diagrama actualizado');
   renderDiagram();
   saveToLocalStorage();
-  if (result.diagnostics.length) {
-    alert(`Diagrama generado con advertencias:\n\n${result.diagnostics.join('\n')}`);
+  if (result.diagnostics.length || result.ignoredObjects.length) {
+    alert(`Diagrama generado para ${result.dialect} con observaciones:\n\n${[...result.diagnostics, ...result.ignoredObjects].join('\n')}`);
   }
 });
 
